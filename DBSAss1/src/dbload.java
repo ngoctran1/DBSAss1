@@ -1,31 +1,59 @@
 
 import java.io.*;
+import java.util.*;
+import dbLoadLib.LineProcess;
+import dbLoadLib.FileProcess;
 
 public class dbload {
+	// Used for parsing arguments into program
+	private static final int EXPECTED_ARGS = 3;
+	private static final int DEFAULT_ARGS = 1;
+	private static final int PAGE_SIZE_INDEX = 1;
+	private static final int INPUT_FILE_INDEX = 2;
 	private static final int DEFAULT_PAGE_SIZE = 1024;
-	private static final int NUM_FIELDS = 13;
-	private static final int INT_SIZE = 4;
-	private static final int HEADER_SIZE = NUM_FIELDS * INT_SIZE;
+	
+	// These constants be made to be dynamic later on if needed
+	private static int numFields = 13;
+	private static boolean headerPresent = true;
+	private static int headerSize = numFields * LineProcess.INT_SIZE;
+	private static int[] dataTypes = new int[]{LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
+													  LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
+													  LineProcess.STR_TYPE, LineProcess.INT_TYPE, LineProcess.STR_TYPE,
+													  LineProcess.STR_TYPE, LineProcess.STR_TYPE, LineProcess.INT_TYPE,
+													  LineProcess.STR_TYPE};
 	
 	public static void main(String[] args) {
-		int pageSize = DEFAULT_PAGE_SIZE;
 		String inputFile = null;
 		String outputFile = null;
-		BufferedReader input;
 		DataOutputStream output;
+		Scanner input;
+		
+		int currentPageSize = 0;
+		int recordsRead = 0;
+		int numPages = 0;
+		int pageSize = DEFAULT_PAGE_SIZE;
+		
+		String[] data = null;
+		int[] offsets = new int[numFields];
+		boolean prevData = false; // Used to indicate extra data from full page needs to be written to next page
 		
 		// Parse arguments
-		if(args.length == 3) {
+		if(args.length == EXPECTED_ARGS) {
 			if(args[0].equals("-p")) {
-				pageSize = Integer.parseInt(args[1]);
-				inputFile = args[2];
+				try {
+					pageSize = Integer.parseInt(args[PAGE_SIZE_INDEX]);
+				} catch (NumberFormatException e) {
+					System.err.println("Invalid page size!");
+					System.exit(1);
+				}
+				inputFile = args[INPUT_FILE_INDEX];
 				outputFile = "heap." + pageSize;
 			} else {
 				System.err.println("Invalid parameters. Please use the following:");
 				System.err.println("java dbload -p pagesize datafile");
 				System.exit(1);
 			}
-		} else if(args.length == 1) {
+		} else if(args.length == DEFAULT_ARGS) {
 			inputFile = args[0];
 			outputFile = "heap." + pageSize;
 		} else {
@@ -34,66 +62,67 @@ public class dbload {
 			System.exit(1);
 		}
 		
+		System.out.println("--------------------------------------------------------------------------------");
+		System.out.println("INPUTS\n");
 		System.out.println("Page size: " + pageSize + " Bytes");
 		System.out.println("Input file: " + inputFile);
+		System.out.println("--------------------------------------------------------------------------------");
 		
 		try {
+			input = new Scanner(new File(inputFile));
 			output = new DataOutputStream(new FileOutputStream(outputFile));
-			input = new BufferedReader(new FileReader(inputFile));
+			numPages++;
 			
-			String[] splitLine;
-			String inputLine;
-			byte[] byteString;
-			int[] offsets = new int[NUM_FIELDS];
-			int currentPageSize = 0;
+			// Remove Header
+			if(headerPresent) {
+				input.nextLine();
+			}
 			
-			// Read in data
-			input.readLine();
-			while(((inputLine = input.readLine()) != null)) {
-				System.out.println(currentPageSize);
-				splitLine = inputLine.split(",");
-				
-				// Read in data and calculate offsets for record
-				for(int j = 0; j < splitLine.length; j++) {
-					if(j == 0) {
-						offsets[j] = INT_SIZE;
-					} else if(j == 3 || j == 7 || j == 11) {
-						// Int values
-						offsets[j] = offsets[j - 1] + INT_SIZE;
-					} else {
-						// String values
-						byteString = splitLine[j].getBytes();
-						offsets[j] = offsets[j - 1] + byteString.length;
+			// Process file
+			while(true) {
+				while(currentPageSize < pageSize && (input.hasNextLine() || prevData == true)) {
+					// Read new data and get offsets if none remaining from previous iteration.
+					if(prevData == false) {
+						data = LineProcess.getNextData(input);
+						offsets = LineProcess.calcOffset(data, dataTypes);
 					}
-					System.out.print(offsets[j] + " ");
+					
+					// Determine if there is enough free space to input record
+					if(currentPageSize + offsets[numFields - 1] + headerSize > pageSize) {
+						prevData = true;
+						output.close();
+						break;
+					}
+					currentPageSize += offsets[numFields - 1] + headerSize;
+					
+					// Write records to heap file
+					FileProcess.writeOffsets(offsets, output);
+					FileProcess.writeData(data, dataTypes, output);
+					
+					prevData = false;
+					recordsRead++;
 				}
 				
-				System.out.println();
-				currentPageSize += offsets[NUM_FIELDS - 1] + HEADER_SIZE;
-				// Reads in on extra line of data that is not written!!
-				if(currentPageSize > pageSize) {
+				// Only create a new page file if there is data left to be written
+				if(input.hasNextLine() || prevData == true) {
+					output = new DataOutputStream(new FileOutputStream(outputFile));
+					numPages++;
+					currentPageSize = 0;
+				} else {
 					break;
 				}
-				
-				// Write out offsets to accomodate variable length records
-				for(int j = 0; j < offsets.length; j++) {
-					output.writeInt(offsets[j]);
-				}
-				
-				// Write out data
-				for(int j = 0; j < splitLine.length; j++) {	
-					if(j == 0 || j == 3 || j == 7 || j == 11) {
-						// Int values
-						output.writeInt(Integer.parseInt(splitLine[j]));
-					} else {
-						// String values
-						output.write(splitLine[j].getBytes());
-					}
-				}
 			}
+			
 			output.close();
 			input.close();
+			
+			System.out.println("--------------------------------------------------------------------------------");
+			System.out.println("SUMMARY STATS\n");
+			System.out.println("Total records read: " + recordsRead);
+			System.out.println("Total pages used: " + numPages);
+			System.out.println("--------------------------------------------------------------------------------");
 		} catch (IOException e) {
+			System.out.println(e.getMessage());
 			System.exit(0);
 		}
 	}
