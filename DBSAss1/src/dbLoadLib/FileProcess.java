@@ -13,10 +13,10 @@ public class FileProcess {
 	public static void writeData(String[] data, int[] types, DataOutputStream output) throws IOException {
 		for(int i = 0; i < data.length; i++) {
 			if(types[i] == LineProcess.INT_TYPE) {
-				if(Double.parseDouble(data[i]) < 0) {
-					output.writeInt(ERROR_INT_VALUE);
-				} else {
+				try {
 					output.writeInt(Integer.parseInt(data[i]));
+				} catch(NumberFormatException e) {
+					output.writeInt(ERROR_INT_VALUE);
 				}
 			} else if(types[i] == LineProcess.STR_TYPE) {
 				output.write(data[i].getBytes());
