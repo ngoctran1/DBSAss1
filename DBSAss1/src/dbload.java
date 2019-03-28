@@ -1,4 +1,6 @@
 import java.io.*;
+import java.util.Arrays;
+
 import dbLoadLib.*;
 
 public class dbload {
@@ -11,15 +13,13 @@ public class dbload {
 	
 	// These constants be made to be dynamic later on if needed
 	private static int maxPageSize = DEFAULT_PAGE_SIZE;
-	private static int numFields = 13;
 	private static boolean headerPresent = true;
 	private static int numPages = 0;
-	private static int headerSize = numFields * LineProcess.INT_SIZE;
-	private static int[] dataTypes = new int[]{LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
-													  LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
-													  LineProcess.STR_TYPE, LineProcess.INT_TYPE, LineProcess.STR_TYPE,
-													  LineProcess.STR_TYPE, LineProcess.STR_TYPE, LineProcess.INT_TYPE,
-													  LineProcess.STR_TYPE};
+	private static int[] heapDataTypes = new int[]{LineProcess.STR_TYPE, LineProcess.STR_TYPE,
+			  LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
+			  LineProcess.STR_TYPE, LineProcess.INT_TYPE, LineProcess.STR_TYPE,
+			  LineProcess.STR_TYPE, LineProcess.STR_TYPE, LineProcess.INT_TYPE,
+			  LineProcess.STR_TYPE};
 	
 	public static void main(String[] args) {
 		String inputFile = null;
@@ -96,11 +96,17 @@ public class dbload {
 		int recordsRead = 0;
 		int[] offsets;
 		Record record = null;
+		String[] rawData;
+		String[] processedData;
 		
 		while(LineProcess.hasNextData(input)) {
 			// Read new data and get offsets if none remaining from previous iteration.
-			offsets = LineProcess.calcOffset(LineProcess.getNextData(input, false), dataTypes);
-			record = new Record(LineProcess.convertToBinary(LineProcess.getNextData(input, false), dataTypes), dataTypes, offsets);
+			rawData = LineProcess.getNextData(input, false);
+			processedData = Arrays.copyOfRange(rawData, 1, rawData.length);
+			processedData[0] = createDAName(rawData[0], rawData[1]);
+			
+			offsets = LineProcess.calcOffset(processedData, heapDataTypes);
+			record = new Record(LineProcess.convertToBinary(processedData, heapDataTypes), heapDataTypes, offsets);
 			
 			// Create new page and add records to page
 			if(page == null) {
@@ -125,5 +131,71 @@ public class dbload {
 			page.writePage(output);
 		}
 		return recordsRead;
+	}
+	
+	/**
+	 * Two formats exist in sample CSV file from Assignment:
+	 * Format Type 1. mm/dd/yyyy hh:mm:ss PM/AM
+	 * Format Type 2. dd/mm/yyyy hh:mm
+	 * The seconds for type 2 will be set to 0 in the output
+	 * @param deviceID
+	 * @param arrivalTime
+	 * @return DA_Name string with format deviceID-yyyy/mm/dd-hh:mm:ss where time is in 24 hour time
+	 */
+	private static String createDAName(String deviceID, String arrivalTime) {
+		String[] dataString = arrivalTime.split(" ");
+		String[] date = dataString[0].split("/");
+		String[] time = dataString[1].split(":");
+		
+		int day;
+		int month;
+		int year;
+		int hours;
+		int minutes;
+		int seconds;
+		
+		if(time.length == 3) {
+			// Format Type 1
+			month = Integer.parseInt(date[0]);
+			day = Integer.parseInt(date[1]);
+			year = Integer.parseInt(date[2]);
+			hours = Integer.parseInt(time[0]);
+			minutes = Integer.parseInt(time[1]);
+			seconds = Integer.parseInt(time[2]);
+			if(dataString[2].equals("PM")) {
+				hours += 12;
+			}
+		} else {
+			// Format Type 2
+			day = Integer.parseInt(date[0]);
+			month = Integer.parseInt(date[1]);
+			year = Integer.parseInt(date[2]);
+			hours = Integer.parseInt(time[0]);
+			minutes = Integer.parseInt(time[1]);
+			seconds = 0;
+		}
+		
+		return String.format("%s-%s/%s/%s-%s:%s:%s",
+							 deviceID,
+							 year, 
+							 timePadZero(month),
+							 timePadZero(day),
+							 timePadZero(hours),
+							 timePadZero(minutes),
+							 timePadZero(seconds));
+	}
+	
+	/**
+	 * Puts a 0 in front of input if input < 10 for use in formatting times / dates
+	 * @param input
+	 * @return
+	 */
+	private static String timePadZero(int input) {
+		StringBuilder output = new StringBuilder();
+		if(input < 10) {
+			output.append(0);
+		}
+		output.append(input);
+		return output.toString();
 	}
 }

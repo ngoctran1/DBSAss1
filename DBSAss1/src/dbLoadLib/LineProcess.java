@@ -30,14 +30,18 @@ public class LineProcess {
 				}
 			} else if(types[i] == STR_TYPE) {
 				// Strings are processed as a byte string
-				offsets[i] = offsets[i - 1] + dataLine[i].getBytes().length;
+				if(i == 0) {
+					offsets[i] = dataLine[i].getBytes().length;
+				} else {
+					offsets[i] = offsets[i - 1] + dataLine[i].getBytes().length;
+				}
 			}
 		}
 		return offsets;
 	}
 	
 	public static ArrayList<byte[]> convertToBinary(String[] dataLine, int[] types) {
-		ArrayList<byte[]> binary = new ArrayList<>(dataLine.length);
+		ArrayList<byte[]> binary = new ArrayList<>(dataLine.length - 1);
 		
 		for(int i = 0; i < dataLine.length; i++) {
 			if(types[i] == INT_TYPE) {
