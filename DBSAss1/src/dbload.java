@@ -103,7 +103,7 @@ public class dbload {
 			// Read new data and get offsets if none remaining from previous iteration.
 			rawData = LineProcess.getNextData(input, false);
 			processedData = Arrays.copyOfRange(rawData, 1, rawData.length);
-			processedData[0] = createDAName(rawData[0], rawData[1]);
+			processedData[0] = String.format("%s-%s", rawData[0], rawData[1]);
 			
 			offsets = LineProcess.calcOffset(processedData, heapDataTypes);
 			record = new Record(LineProcess.convertToBinary(processedData, heapDataTypes), heapDataTypes, offsets);
@@ -131,71 +131,5 @@ public class dbload {
 			page.writePage(output);
 		}
 		return recordsRead;
-	}
-	
-	/**
-	 * Two formats exist in sample CSV file from Assignment:
-	 * Format Type 1. mm/dd/yyyy hh:mm:ss PM/AM
-	 * Format Type 2. dd/mm/yyyy hh:mm
-	 * The seconds for type 2 will be set to 0 in the output
-	 * @param deviceID
-	 * @param arrivalTime
-	 * @return DA_Name string with format deviceID-yyyy/mm/dd-hh:mm:ss where time is in 24 hour time
-	 */
-	private static String createDAName(String deviceID, String arrivalTime) {
-		String[] dataString = arrivalTime.split(" ");
-		String[] date = dataString[0].split("/");
-		String[] time = dataString[1].split(":");
-		
-		int day;
-		int month;
-		int year;
-		int hours;
-		int minutes;
-		int seconds;
-		
-		if(time.length == 3) {
-			// Format Type 1
-			month = Integer.parseInt(date[0]);
-			day = Integer.parseInt(date[1]);
-			year = Integer.parseInt(date[2]);
-			hours = Integer.parseInt(time[0]);
-			minutes = Integer.parseInt(time[1]);
-			seconds = Integer.parseInt(time[2]);
-			if(dataString[2].equals("PM")) {
-				hours += 12;
-			}
-		} else {
-			// Format Type 2
-			day = Integer.parseInt(date[0]);
-			month = Integer.parseInt(date[1]);
-			year = Integer.parseInt(date[2]);
-			hours = Integer.parseInt(time[0]);
-			minutes = Integer.parseInt(time[1]);
-			seconds = 0;
-		}
-		
-		return String.format("%s-%s/%s/%s-%s:%s:%s",
-							 deviceID,
-							 year, 
-							 timePadZero(month),
-							 timePadZero(day),
-							 timePadZero(hours),
-							 timePadZero(minutes),
-							 timePadZero(seconds));
-	}
-	
-	/**
-	 * Puts a 0 in front of input if input < 10 for use in formatting times / dates
-	 * @param input
-	 * @return
-	 */
-	private static String timePadZero(int input) {
-		StringBuilder output = new StringBuilder();
-		if(input < 10) {
-			output.append(0);
-		}
-		output.append(input);
-		return output.toString();
 	}
 }
