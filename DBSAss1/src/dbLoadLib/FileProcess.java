@@ -23,4 +23,10 @@ public class FileProcess {
 			}
 		}
 	}
+	
+	public static void writeOffsets(int[] offsets, RandomAccessFile output) throws IOException {
+		for(int i = 0; i < offsets.length; i++) {
+			output.writeInt(offsets[i]);
+		}
+	}
 }

@@ -1,5 +1,7 @@
 package dbLoadLib;
 import java.io.*;
+import java.nio.*;
+import java.util.ArrayList;
 
 public class LineProcess {
 	public static final int INT_SIZE = 4;
@@ -32,6 +34,24 @@ public class LineProcess {
 			}
 		}
 		return offsets;
+	}
+	
+	public static ArrayList<byte[]> convertToBinary(String[] dataLine, int[] types) {
+		ArrayList<byte[]> binary = new ArrayList<>(dataLine.length);
+		
+		for(int i = 0; i < dataLine.length; i++) {
+			if(types[i] == INT_TYPE) {
+				// data is in String, so convert to int then byte array
+				try {
+					binary.add(i, ByteBuffer.allocate(4).putInt(Integer.parseInt(dataLine[i])).array());
+				} catch (NumberFormatException e) {
+					binary.add(i, ByteBuffer.allocate(4).putInt(-1).array());
+				}
+			} else if(types[i] == STR_TYPE) {
+				binary.add(i, dataLine[i].getBytes());
+			}
+		}
+		return binary;
 	}
 	
 	/**

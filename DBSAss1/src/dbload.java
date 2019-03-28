@@ -1,11 +1,7 @@
 import java.io.*;
-import dbLoadLib.LineProcess;
-import dbLoadLib.FileProcess;
+import dbLoadLib.*;
 
 public class dbload {
-	// Performance monitoring
-	private static long writeTime = 0;
-	private static long checkTime = 0;
 	// Used for parsing arguments into program
 	private static final int EXPECTED_ARGS = 3;
 	private static final int DEFAULT_ARGS = 1;
@@ -17,6 +13,7 @@ public class dbload {
 	private static int maxPageSize = DEFAULT_PAGE_SIZE;
 	private static int numFields = 13;
 	private static boolean headerPresent = true;
+	private static int numPages = 0;
 	private static int headerSize = numFields * LineProcess.INT_SIZE;
 	private static int[] dataTypes = new int[]{LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
 													  LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
@@ -33,7 +30,6 @@ public class dbload {
 		long beginTime;
 		long endTime;
 		int recordsRead = 0;
-		int numPages = 0;
 		
 		// Parse arguments
 		if(args.length == EXPECTED_ARGS) {
@@ -76,11 +72,8 @@ public class dbload {
 			
 			// Process file
 			beginTime = System.nanoTime();
-			while(LineProcess.hasNextData(input)) {
-				output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
-				numPages++;
-				recordsRead += loadNextPage(input, output);
-			}
+			output = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+			recordsRead = loadDB(input, output);
 			output.close();
 			endTime = System.nanoTime();
 			input.close();
@@ -88,8 +81,6 @@ public class dbload {
 			System.out.println("--------------------------------------------------------------------------------");
 			System.out.println("SUMMARY STATS\n");
 			System.out.printf("Total Time Taken: %d ms\n", (endTime - beginTime) / 1000000);
-			System.out.printf("Write Time Taken: %d ms\n", writeTime / 1000000);
-			System.out.printf("Check Time Taken: %d ms\n", checkTime / 1000000);
 			System.out.println("Total records read: " + recordsRead);
 			System.out.println("Total pages used: " + numPages);
 			System.out.println("--------------------------------------------------------------------------------");
@@ -100,26 +91,38 @@ public class dbload {
 	}
 
 	
-	public static int loadNextPage(BufferedReader input, DataOutputStream output) throws IOException {
+	public static int loadDB(BufferedReader input, DataOutputStream output) throws IOException {
+		Page page = null;
 		int recordsRead = 0;
 		int[] offsets;
-		int currentPageSize = 0;
+		Record record = null;
 		
 		while(LineProcess.hasNextData(input)) {
 			// Read new data and get offsets if none remaining from previous iteration.
 			offsets = LineProcess.calcOffset(LineProcess.getNextData(input, false), dataTypes);
+			record = new Record(LineProcess.convertToBinary(LineProcess.getNextData(input, false), dataTypes), dataTypes, offsets);
 			
-			// Close page if full
-			if(currentPageSize + offsets[numFields - 1] + headerSize > maxPageSize) {
-				output.close();
-				break;
+			// Create new page and add records to page
+			if(page == null) {
+				page = new Page(maxPageSize, numPages);
+				numPages++;
 			}
-			currentPageSize += offsets[numFields - 1] + headerSize;
 			
-			// Write records to heap file
-			FileProcess.writeOffsets(offsets, output);
-			FileProcess.writeData(LineProcess.getNextData(input, true), dataTypes, output);
-			recordsRead++;
+			if(page.addRecord(record)) {
+				// Discard processed data
+				LineProcess.getNextData(input, true);
+				
+				recordsRead++;
+				record = null;
+			} else {
+				page.writePage(output);
+				page = null;
+			}
+		}
+		
+		// Write last page
+		if(page != null) {
+			page.writePage(output);
 		}
 		return recordsRead;
 	}
