@@ -17,6 +17,9 @@ public class Page {
 	private int freeSpace;
 	private ArrayList<Record> slots;
 	
+	private int forwardCursor;
+	private int backwardCursor;
+	
 	// <offset, size>
 	private ArrayList<int[]> slotDirectory;
 	
@@ -41,8 +44,6 @@ public class Page {
 	
 	// Used to reconstruct a page from binary page data
 	public Page(byte[] inputData, int[] dataTypes) {
-		int forwardCursor = 0;
-		int backwardCursor = inputData.length;
 		int slotOffset;
 		int slotSize;
 		slots = new ArrayList<>(100);
@@ -53,41 +54,36 @@ public class Page {
 		Record record;
 		
 		pageSize = inputData.length;
+		forwardCursor = 0;
+		backwardCursor = inputData.length;
 		
-		pageID = binToInt(Arrays.copyOfRange(inputData, forwardCursor, forwardCursor + INT_SIZE));
-		forwardCursor += INT_SIZE;
+		pageID = binToInt(readDataForward(inputData, INT_SIZE));
 		
-		freeSpaceOffset = binToInt(Arrays.copyOfRange(inputData, backwardCursor - INT_SIZE, backwardCursor));
-		backwardCursor -= INT_SIZE;
+		freeSpaceOffset = binToInt(readDataBackward(inputData, INT_SIZE));
 		
 		// Reconstruct slotDirectory
-		numSlots = binToInt(Arrays.copyOfRange(inputData, backwardCursor - INT_SIZE, backwardCursor));
-		backwardCursor -= INT_SIZE;
+		numSlots = binToInt(readDataBackward(inputData, INT_SIZE));
 		for(int i = 0; i < numSlots; i++) {
-			slotSize =  binToInt(Arrays.copyOfRange(inputData, backwardCursor - INT_SIZE, backwardCursor));
-			backwardCursor -= INT_SIZE;
-			slotOffset = binToInt(Arrays.copyOfRange(inputData, backwardCursor - INT_SIZE, backwardCursor));
-			backwardCursor -= INT_SIZE;
+			slotSize =  binToInt(readDataBackward(inputData, INT_SIZE));
+			slotOffset = binToInt(readDataBackward(inputData, INT_SIZE));
 			slotDirectory.add(new int[]{slotOffset, slotSize});
 			
 			// Read corresponding slot
-			slotID.add(binToInt(Arrays.copyOfRange(inputData, forwardCursor, forwardCursor + INT_SIZE)));
-			forwardCursor += INT_SIZE;
+			slotID.add(binToInt(readDataForward(inputData, INT_SIZE)));
 			
+			// Read record data offsets
 			offsets = new int[dataTypes.length];
 			for(int j = 0; j < dataTypes.length; j++) {
-				offsets[j] = binToInt(Arrays.copyOfRange(inputData, forwardCursor, forwardCursor + INT_SIZE));
-				forwardCursor += INT_SIZE;
+				offsets[j] = binToInt(readDataForward(inputData, INT_SIZE));
 			}
 			
+			// Read record data
 			data = new ArrayList<>();
 			for(int j = 0; j < dataTypes.length; j++) {
 				if(j == 0) {
-					data.add(Arrays.copyOfRange(inputData, forwardCursor, forwardCursor + offsets[j]));
-					forwardCursor += offsets[j];
+					data.add(readDataForward(inputData, offsets[j]));
 				} else {
-					data.add(Arrays.copyOfRange(inputData, forwardCursor, forwardCursor + offsets[j] - offsets[j - 1]));
-					forwardCursor += offsets[j] - offsets[j-1];
+					data.add(readDataForward(inputData, offsets[j] - offsets[j - 1]));
 				}
 				
 			}
@@ -106,7 +102,6 @@ public class Page {
 			// Add record into existing slot
 			slots.add(freeGap[0], record);
 			slotDirectory.add(freeGap[0], new int[] {freeGap[1], record.getTotalRecordSize()});
-			//freeSpace -= record.getTotalRecordSize();
 			return true;
 		} else if(freeSpace > record.getTotalRecordSize() + 3*INT_SIZE){
 			// Add record into a new slot
@@ -203,6 +198,7 @@ public class Page {
 		output.writeInt(freeSpaceOffset);
 	}
 	
+	// Converts binary to integer
 	private int binToInt(byte[] input) {
 		ByteBuffer buffer = ByteBuffer.wrap(input);
 		return buffer.getInt();
@@ -218,5 +214,23 @@ public class Page {
 	
 	public int getSlotID(int index) {
 		return slotID.get(index);
+	}
+	
+	private byte[] readDataForward(byte[] inputData, int byteSize) {
+		if(forwardCursor + byteSize > pageSize) {
+			return null;
+		}
+		byte[] result = Arrays.copyOfRange(inputData, forwardCursor, forwardCursor + byteSize);
+		forwardCursor += byteSize;
+		return result;
+	}
+	
+	private byte[] readDataBackward(byte[] inputData, int byteSize) {
+		if(backwardCursor - byteSize < 0) {
+			return null;
+		}
+		byte[] result = Arrays.copyOfRange(inputData, backwardCursor - byteSize, backwardCursor);
+		backwardCursor -= byteSize;
+		return result;
 	}
 }

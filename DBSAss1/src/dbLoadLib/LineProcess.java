@@ -11,6 +11,7 @@ public class LineProcess {
 	public static final int INT_TYPE = 1;
 	
 	private static String[] data = null;
+	
 	/**
 	 * 
 	 * @param dataLine - Contains a data line in CSV file split into an array
@@ -45,7 +46,7 @@ public class LineProcess {
 		
 		for(int i = 0; i < dataLine.length; i++) {
 			if(types[i] == INT_TYPE) {
-				// data is in String, so convert to int then byte array
+				// data is in String form, so convert to int then byte array
 				try {
 					binary.add(i, ByteBuffer.allocate(4).putInt(Integer.parseInt(dataLine[i])).array());
 				} catch (NumberFormatException e) {

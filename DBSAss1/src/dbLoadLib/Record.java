@@ -4,6 +4,7 @@ import java.util.*;
 
 public class Record {
 	public final int INT_SIZE = Integer.SIZE/8;
+	
 	private int[] dataTypes;
 	private int numFields;
 	private int[] offsets;
