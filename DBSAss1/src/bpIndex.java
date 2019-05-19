@@ -286,10 +286,27 @@ public class bpIndex {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		// Create the nodes of the B+ tree
+		BufferedReader sortedFile = null;
+		try {
+			sortedFile = new BufferedReader(new FileReader("sortedData.txt"));
+		} catch (Exception e) {
+			
+		}
+		bpTree tree = new bpTree(sortedFile, bpNodeSize);
+		
+		// Queries
+//		tree.equalityQuery("16148-01/01/2017 03:41:25 PM", true);
+//		tree.equalityQuery("17854-07/11/2017 06:20:35 PM", true);
+//		tree.equalityQuery("23073-12/21/2017 04:05:57 PM", true);
+		tree.equalityQuery("RUSSELL STREET", true);
+		tree.equalityQuery("WILLIAM STREET", true);
+		tree.equalityQuery("KING STREET", true);
+		tree.equalityQuery("BOURKE STREET", true);
+		tree.equalityQuery("ALBERT STREET", true);
+		tree.equalityQuery("A'BECKETT STREET", true);
 		endTime = System.nanoTime();
-		
-		// TODO: Create the nodes of the B+ tree
-		
 		System.err.println("--------------------------------------------------------------------------------");
 		System.err.println("SUMMARY STATS\n");
 		System.err.printf("Total Time Taken: %d ms\n", (endTime - beginTime) / 1000000);
