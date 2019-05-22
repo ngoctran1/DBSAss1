@@ -73,7 +73,7 @@ public class bpIndex {
 		int[] subFileKeySlotID = new int[subFileSize];
 		BufferedWriter subFile = null;
 		
-		beginTime = System.nanoTime();
+//		beginTime = System.nanoTime();
 		try {
 			System.err.println("READING DB...");
 			heap = new RandomAccessFile(heapFileName, "rw");
@@ -278,7 +278,9 @@ public class bpIndex {
 					}
 
 					File oldFile = new File(currentFileName);
-					oldFile.renameTo(new File("sortedData.txt"));
+					File temp = new File("sortedData.txt");
+					temp.delete();
+					oldFile.renameTo(temp);
 					break;
 				}
 			}
@@ -300,12 +302,17 @@ public class bpIndex {
 //		tree.equalityQuery("16148-01/01/2017 03:41:25 PM", true);
 //		tree.equalityQuery("17854-07/11/2017 06:20:35 PM", true);
 //		tree.equalityQuery("23073-12/21/2017 04:05:57 PM", true);
+//		tree.rangeQuery("16148-01/01/2017 03:41:25 PM", "23073-12/21/2017 04:05:57 PM");
+		beginTime = System.nanoTime();
 		tree.equalityQuery("RUSSELL STREET", true);
 		tree.equalityQuery("WILLIAM STREET", true);
 		tree.equalityQuery("KING STREET", true);
 		tree.equalityQuery("BOURKE STREET", true);
 		tree.equalityQuery("ALBERT STREET", true);
 		tree.equalityQuery("A'BECKETT STREET", true);
+		tree.rangeQuery("ALBERT STREET", "KING STREET");
+//		tree.printLeaves();
+		
 		endTime = System.nanoTime();
 		System.err.println("--------------------------------------------------------------------------------");
 		System.err.println("SUMMARY STATS\n");

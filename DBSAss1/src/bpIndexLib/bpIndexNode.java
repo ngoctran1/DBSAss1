@@ -3,39 +3,50 @@ package bpIndexLib;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class bpIndexNode extends bpNode {
-	// Pointers to nodes are given as offsets in the B+ index file
-	private bpIndexNode parentNode;
+public class bpIndexNode implements bpNode {
+	// Pointers to nodes are given as offsets in the B+ index file?
+	private bpIndexNode parent;
+	private int parentOffset = -1;
 	private int maxSize;
 	private int size = 0;
+	private int offset = -1;
 	
 	// Using Alternative 2 (Store rID of records instead of record itself)
 	private ArrayList<String> keys;
 	private ArrayList<bpNode> children;
+	private ArrayList<Integer> childrenOffset;
 	
 	public bpIndexNode(int maxSize) {
 		this.maxSize = maxSize;
 		
 		keys = new ArrayList(maxSize);
 		children = new ArrayList(maxSize + 1);
-//		for(int i = 0; i < maxSize + 1; i++) {
-//			children.set(i, -1);
-//		}
+		childrenOffset = new ArrayList(maxSize + 1);
 	}
 	
-	public bpIndexNode getParentNode() {
-		return parentNode;
+	public bpIndexNode getParent() {
+		// if parent is not already in memory, retrieve from database
+		return parent;
 	}
 
-	public void setParentNode(bpIndexNode parentNode) {
-		this.parentNode = parentNode;
+	public void setParent(bpIndexNode parent) {
+		this.parent = parent;
+		parentOffset = parent.getOffset();
+	}
+	
+	public int getParentOffset() {
+		return parentOffset;
+	}
+	
+	public void setParentOffset(int parentOffset) {
+		this.parentOffset = parentOffset;
 	}
 	
 	public String getKey(int index) {
 		return keys.get(index);
 	}
 	
-	void setKey(int index, String key) {
+	public void setKey(int index, String key) {
 		keys.set(index, key);
 	}
 	
@@ -46,8 +57,14 @@ public class bpIndexNode extends bpNode {
 	public void setChild(int index, bpNode child) {
 		if(index == 0 && size == 0) {
 			children.add(child);
+			childrenOffset.add(child.getOffset());
+			System.out.println("Successfully added " + child.getKey(0));
 		} else {
-			children.set(index, child);
+//			if(childrenOffset.get(index) == -1) {
+//				size++;
+//			}
+//			children.set(index, child);
+			childrenOffset.set(index, child.getOffset());
 		}
 	}
 	
@@ -64,14 +81,18 @@ public class bpIndexNode extends bpNode {
 				} else {
 					insertedIndex = i + 1;
 				}
+				System.out.println("Adding " + key + " to index " + insertedIndex + "of Node");
 				children.add(insertedIndex, child);
+				childrenOffset.add(insertedIndex, child.getOffset());
 				keys.add(i, key);
 				size++;
 				break;
 			}
 		}
 		if(insertedIndex == -1) {
+			System.out.println("Adding " + key + " to end of node");
 			children.add(child);
+			childrenOffset.add(child.getOffset());
 			keys.add(key);
 			size++;
 		}
@@ -82,9 +103,30 @@ public class bpIndexNode extends bpNode {
 		return size;
 	}
 	
+	public void setSize(int size) {
+		this.size = size;
+	}
+	
 	public void removeKey(int index) {
 		keys.remove(index);
 		children.remove(index + 1);
+		childrenOffset.remove(index + 1);
 		size--;
+	}
+
+	public int getOffset() {
+		return offset;
+	}
+
+	public void setOffset(int offset) {
+		this.offset = offset;
+	}
+	
+	public int getChildOffset(int index) {
+		return childrenOffset.get(index);
+	}
+	
+	public void setChildOffset(int index, int offset) {
+		childrenOffset.set(index, offset);
 	}
 }
