@@ -34,20 +34,25 @@ public class bpIndexQuery {
 		System.out.println("--------------------------------------------------------------------------------");
 		System.out.println("INPUTS\n");
 		System.out.println("B+ File: " + bpFileName);
-		System.out.println("Query: " + query);
+
+		if(equalitySearch) {
+			System.out.println("Query (Equality): " + query);
+		} else {
+			System.out.println("Query (Range): \"" + query + "\" - \"" + query2 + "\"");
+		}
 		System.out.println("--------------------------------------------------------------------------------");
 		beginTime = System.nanoTime();
 		try {
 			bpFile = new RandomAccessFile(bpFileName, "rw");
 			tree = new bpTree(bpFile);
 			
-			System.out.println("MATCHES");
+			System.out.println("--------------------------------------------------------------------------------");
+			System.out.println("MATCHES\n");
 			if(equalitySearch) {
 				tree.equalityQuery(query, true);
 			} else {
 				System.out.println("Number of Matches: " + tree.rangeQuery(query, query2));
 			}
-//			tree.printLeaves();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

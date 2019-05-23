@@ -73,7 +73,7 @@ public class bpIndex {
 		int[] subFileKeySlotID = new int[subFileSize];
 		BufferedWriter subFile = null;
 		
-//		beginTime = System.nanoTime();
+		beginTime = System.nanoTime();
 		try {
 			System.err.println("READING DB...");
 			heap = new RandomAccessFile(heapFileName, "rw");
@@ -138,10 +138,12 @@ public class bpIndex {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		endTime = System.nanoTime();
+		System.err.printf("Time to Read DB and Sort Subfiles: %d ms\n", (endTime - beginTime) / 1000000);
 		
 		System.err.println("--------------------------------------------------------------------------------");
 		System.err.println("MERGING\n");
-		System.err.println("--------------------------------------------------------------------------------");
+		beginTime = System.nanoTime();
 		// Write out any remaining data
 		try { 
 			if(subFile != null) {
@@ -150,11 +152,10 @@ public class bpIndex {
 			}
 			
 			// Merge sort the files written
-			String prefix = null;
-			
-			//--------------------------------------------------------------------------------------------------------
+			String fileNamePrefix = null;
 			BufferedReader[] filesToMerge = new BufferedReader[numMergeLimit];
 			String[] fileNames = new String[numMergeLimit];
+			
 			int totalFilesCompleted = 0;
 			int numLayer = 0;
 			int currentQueue = numSubFiles;
@@ -179,23 +180,19 @@ public class bpIndex {
 						for(int k = 0; k < numLayer; k++) {
 							prefixBuilder.append('M');
 						}
-						prefix = prefixBuilder.toString();
+						fileNamePrefix = prefixBuilder.toString();
 						try {
-							openFileName = "subfile." + prefix + (totalFilesCompleted + j);
+							openFileName = "subfile." + fileNamePrefix + (totalFilesCompleted + j);
 							filesToMerge[j] = new BufferedReader(new FileReader(openFileName));
 							fileNames[j] = openFileName;
-//							System.out.println("Found file " + "subfile." + prefix + (totalFilesCompleted + j));
 						} catch (FileNotFoundException e) {
 							numMerging = j;
-//							System.out.println("Could not find file " + "subfile." + prefix + (totalFilesCompleted + j));
 							break;
 						}
 					}
 					if(numMerging == -1) {
 						numMerging = numMergeLimit;
 					}
-					
-					System.out.println("Found " + numMerging + " files to merge");
 					
 					// Merge read in files
 					mergedFile = null;
@@ -231,8 +228,8 @@ public class bpIndex {
 						if(goal != null) {
 							// Write smallest data
 							if(mergedFile == null) {
-								currentFileName = "subfile." + prefix + 'M' + nextQueue;
-								mergedFile = new BufferedWriter(new FileWriter("subfile." + prefix + 'M' + nextQueue));
+								currentFileName = "subfile." + fileNamePrefix + 'M' + nextQueue;
+								mergedFile = new BufferedWriter(new FileWriter("subfile." + fileNamePrefix + 'M' + nextQueue));
 							}
 							mergedFile.write(newDataLines[goalIndex]);
 							mergedFile.write("\n");
@@ -257,20 +254,17 @@ public class bpIndex {
 						prevFileName = currentFileName;
 						mergedFile.close();
 						nextQueue++;
-//						System.out.println("Finished merging into: " + currentFileName);
-//						System.out.println("Remaining Queue: " + currentQueue);
 					}
 				}
-//				System.out.println("NextQueue = " + nextQueue + ", currentQueue = " + currentQueue);
+				
 				if(nextQueue > 1 && currentQueue <= 0) {
-					System.out.println("Finished layer");
+					// Finished merging current layer, reset for next layer
 					currentQueue = nextQueue;
 					nextQueue = 0;
 					numLayer++;
 					totalFilesCompleted = 0;
 				} else {
-					System.out.println("Breaking point");
-					System.out.println(currentFileName);
+					// No more files to merge
 					if(mergedFile != null) {
 						mergedFile.close();
 					} else {
@@ -284,11 +278,18 @@ public class bpIndex {
 					break;
 				}
 			}
-			//--------------------------------------------------------------------------------------------------------
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		endTime = System.nanoTime();
+
+		System.err.printf("Time to Merge Subfiles: %d ms\n", (endTime - beginTime) / 1000000);
+		System.err.println("--------------------------------------------------------------------------------");
 		
+		beginTime = System.nanoTime();
+		System.err.println("--------------------------------------------------------------------------------");
+		System.err.println("CREATING B+ TREE\n");
+
 		// Create the nodes of the B+ tree
 		BufferedReader sortedFile = null;
 		try {
@@ -296,34 +297,13 @@ public class bpIndex {
 		} catch (Exception e) {
 			
 		}
+		
 		bpTree tree = new bpTree(sortedFile, bpNodeSize);
-		
-		// Queries
-		beginTime = System.nanoTime();
-		tree.equalityQuery("16148-01/01/2017 03:41:25 PM", true);
-		tree.equalityQuery("17854-07/11/2017 06:20:35 PM", true);
-		tree.equalityQuery("23073-12/21/2017 04:05:57 PM", true);
-		System.out.println("Number of Matches " + tree.rangeQuery("16148-01/01/2017 03:41:25 PM", "23073-12/21/2017 04:05:57 PM"));
-		
-//		tree.equalityQuery("RUSSELL STREET", true);
-//		tree.equalityQuery("WILLIAM STREET", true);
-//		tree.equalityQuery("KING STREET", true);
-//		tree.equalityQuery("BOURKE STREET", true);
-//		tree.equalityQuery("ALBERT STREET", true);
-//		tree.equalityQuery("A'BECKETT STREET", true);
-//		tree.rangeQuery("ALBERT STREET", "KING STREET");
-//		tree.printLeaves();
-		
-//		System.out.println("DEPTH: " + tree.getHeight(tree.getFirstLeaf(), 0));
-//		tree.printLeaves();
 		tree.close();
 		
 		endTime = System.nanoTime();
-		System.err.println("--------------------------------------------------------------------------------");
-		System.err.println("SUMMARY STATS\n");
-		System.err.printf("Total Time Taken: %d ms\n", (endTime - beginTime) / 1000000);
-		System.err.println("Total Records Read: " + recordsRead);
-		System.err.println("Total Pages Read: " + numPages);
+		System.err.printf("\nTime to Create B+ Tree: %d ms\n", (endTime - beginTime) / 1000000);
+		
 		System.err.println("--------------------------------------------------------------------------------");
 	}
 }

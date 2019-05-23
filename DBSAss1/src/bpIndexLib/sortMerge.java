@@ -1,6 +1,6 @@
 package bpIndexLib;
 public class sortMerge {
-//	Only works for Strings! Passing in int as Strings will result in lexicographical ordering
+	//	Only works for Strings! Passing in int as Strings will result in lexicographical ordering
 	public static void mergeSort(String[] keys, int[] keyPageID, int[] keySlotID, int start, int length) {
 		// Base Case
 		if(length <= 1) {
