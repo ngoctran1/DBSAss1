@@ -1,7 +1,6 @@
 package bpIndexLib;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class bpIndexNode implements bpNode {
 	private int offset = -1;
@@ -19,9 +18,9 @@ public class bpIndexNode implements bpNode {
 	public bpIndexNode(int maxSize) {
 		this.maxSize = maxSize;
 		
-		keys = new ArrayList(maxSize);
-		children = new ArrayList(maxSize + 1);
-		childrenOffset = new ArrayList(maxSize + 1);
+		keys = new ArrayList<>(maxSize);
+		children = new ArrayList<>(maxSize + 1);
+		childrenOffset = new ArrayList<>(maxSize + 1);
 	}
 	
 	public int getOffset() {

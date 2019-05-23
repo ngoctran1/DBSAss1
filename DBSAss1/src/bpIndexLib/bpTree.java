@@ -1,8 +1,11 @@
 package bpIndexLib;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+
+import dbLoadLib.Heap;
 
 public class bpTree {
 	private static final int INT_SIZE = 4;
@@ -217,31 +220,37 @@ public class bpTree {
 	}
 	
 	// Find the bottom-most index node into which a leaf node should be inserted
-		private bpIndexNode traverseDown(bpIndexNode startNode, String key) {
-			// If next nodes are leaf nodes return this node
-			if(readChildNode(startNode, 0) instanceof bpLeafNode || readChildNode(startNode, 0) == null) {
-				return startNode;
-			}
-			
-			bpIndexNode child = (bpIndexNode) readChildNode(startNode, 0);
-			// Search through node to find next node to search
-			for(int i = 0; i < child.getSize(); i++) {
-				// else find next node to search
-				if(child.getKey(i).compareTo(key) > 0) {
-					return traverseDown(child, key);
-				}
-			}
+	private bpIndexNode traverseDown(bpIndexNode startNode, String key) {
+		// If next nodes are leaf nodes return this node
+		if(readChildNode(startNode, 0) instanceof bpLeafNode || readChildNode(startNode, 0) == null) {
 			return startNode;
 		}
+		
+		bpIndexNode child = (bpIndexNode) readChildNode(startNode, 0);
+		// Search through node to find next node to search
+		for(int i = 0; i < child.getSize(); i++) {
+			// else find next node to search
+			if(child.getKey(i).compareTo(key) > 0) {
+				return traverseDown(child, key);
+			}
+		}
+		return startNode;
+	}
 	
-	public void equalityQuery(String query, boolean findAll) {
+	public void equalityQuery(String query, boolean findAll, Heap heap, BufferedWriter output) {
 		bpIndexNode currentNode = root;
 		bpLeafNode result = traverseQuery(currentNode, query);
 		boolean matched = false;
 		for(int i = 0; i < result.getSize(); i++) {
 			if(result.getKey(i).compareTo(query) == 0) {
-				// TOODO: Read record from DB
-				System.out.println("PageID: " + result.getKeyPageID(i) + ", SlotID: " + result.getKeySlotID(i));
+				try {
+					output.write(heap.getPage(result.getKeyPageID(i)).getSlotByIndex(result.getKeySlotID(i)).getReadableData());
+					output.write("\n");
+				} catch (IOException e) {
+					e.printStackTrace();
+					System.exit(0);
+				}
+				
 				matched = true;
 				if(!findAll) {
 					return;
@@ -254,10 +263,10 @@ public class bpTree {
 				matched = false;
 			}
 		}
-		findRemainMatches(result, query);
+		findRemainMatches(result, query, heap, output);
 	}
 	
-	public int rangeQuery(String lowBound, String highBound) {
+	public int rangeQuery(String lowBound, String highBound, Heap heap, BufferedWriter output) {
 		boolean matched = false;
 		boolean brokenChain = false;
 		int numMatches = 0;
@@ -275,7 +284,13 @@ public class bpTree {
 			numMismatch = 0;
 			for(int i = 0; i < result.getSize(); i++) {
 				if(result.getKey(i).compareTo(lowBound) >= 0 && result.getKey(i).compareTo(highBound) < 0) {
-					// TODO: Read records from DB
+					try {
+						output.write(heap.getPage(result.getKeyPageID(i)).getSlotByIndex(result.getKeySlotID(i)).getReadableData());
+						output.write("\n");
+					} catch (IOException e) {
+						e.printStackTrace();
+						System.exit(0);
+					}
 					matched = true;
 					numMatches++;
 				} else if (matched == true) {
@@ -298,7 +313,7 @@ public class bpTree {
 	}
 	
 	// Keeps scanning successive leaf nodes until it comes across a key no satisfying query
-	private void findRemainMatches(bpLeafNode startNode, String query) {
+	private void findRemainMatches(bpLeafNode startNode, String query, Heap heap, BufferedWriter output) {
 		bpLeafNode nextNode = readNextLeaf(startNode);
 		if(nextNode == null) {
 			return;
@@ -307,11 +322,16 @@ public class bpTree {
 			if(nextNode.getKey(i).compareTo(query) != 0) {
 				return;
 			} else {
-				// TODO: Read records from DB
-				System.out.println("PageID: " + nextNode.getKeyPageID(i) + ", SlotID: " + nextNode.getKeySlotID(i));
+				try {
+					output.write(heap.getPage(nextNode.getKeyPageID(i)).getSlotByIndex(nextNode.getKeySlotID(i)).getReadableData());
+					output.write("\n");
+				} catch (IOException e) {
+					e.printStackTrace();
+					System.exit(0);
+				}
 			}
 		}
-		findRemainMatches(nextNode, query);
+		findRemainMatches(nextNode, query, heap, output);
 	}
 	
 	// Uses query to traverse down tree to leaf nodes that contain the query.

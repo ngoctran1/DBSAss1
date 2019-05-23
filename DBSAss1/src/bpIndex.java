@@ -1,7 +1,5 @@
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.Scanner;
 
 import dbLoadLib.LineProcess;
 import dbLoadLib.Page;
@@ -140,6 +138,8 @@ public class bpIndex {
 		}
 		endTime = System.nanoTime();
 		System.err.printf("Time to Read DB and Sort Subfiles: %d ms\n", (endTime - beginTime) / 1000000);
+		System.err.println("Num Pages Read: " + numPages);
+		System.err.println("Num Records Read: " + recordsRead);
 		
 		System.err.println("--------------------------------------------------------------------------------");
 		System.err.println("MERGING\n");
