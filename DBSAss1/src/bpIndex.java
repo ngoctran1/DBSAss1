@@ -184,10 +184,10 @@ public class bpIndex {
 							openFileName = "subfile." + prefix + (totalFilesCompleted + j);
 							filesToMerge[j] = new BufferedReader(new FileReader(openFileName));
 							fileNames[j] = openFileName;
-							System.out.println("Found file " + "subfile." + prefix + (totalFilesCompleted + j));
+//							System.out.println("Found file " + "subfile." + prefix + (totalFilesCompleted + j));
 						} catch (FileNotFoundException e) {
 							numMerging = j;
-							System.out.println("Could not find file " + "subfile." + prefix + (totalFilesCompleted + j));
+//							System.out.println("Could not find file " + "subfile." + prefix + (totalFilesCompleted + j));
 							break;
 						}
 					}
@@ -257,11 +257,11 @@ public class bpIndex {
 						prevFileName = currentFileName;
 						mergedFile.close();
 						nextQueue++;
-						System.out.println("Finished merging into: " + currentFileName);
-						System.out.println("Remaining Queue: " + currentQueue);
+//						System.out.println("Finished merging into: " + currentFileName);
+//						System.out.println("Remaining Queue: " + currentQueue);
 					}
 				}
-				System.out.println("NextQueue = " + nextQueue + ", currentQueue = " + currentQueue);
+//				System.out.println("NextQueue = " + nextQueue + ", currentQueue = " + currentQueue);
 				if(nextQueue > 1 && currentQueue <= 0) {
 					System.out.println("Finished layer");
 					currentQueue = nextQueue;
@@ -299,19 +299,24 @@ public class bpIndex {
 		bpTree tree = new bpTree(sortedFile, bpNodeSize);
 		
 		// Queries
-//		tree.equalityQuery("16148-01/01/2017 03:41:25 PM", true);
-//		tree.equalityQuery("17854-07/11/2017 06:20:35 PM", true);
-//		tree.equalityQuery("23073-12/21/2017 04:05:57 PM", true);
-//		tree.rangeQuery("16148-01/01/2017 03:41:25 PM", "23073-12/21/2017 04:05:57 PM");
 		beginTime = System.nanoTime();
-		tree.equalityQuery("RUSSELL STREET", true);
-		tree.equalityQuery("WILLIAM STREET", true);
-		tree.equalityQuery("KING STREET", true);
-		tree.equalityQuery("BOURKE STREET", true);
-		tree.equalityQuery("ALBERT STREET", true);
-		tree.equalityQuery("A'BECKETT STREET", true);
-		tree.rangeQuery("ALBERT STREET", "KING STREET");
+		tree.equalityQuery("16148-01/01/2017 03:41:25 PM", true);
+		tree.equalityQuery("17854-07/11/2017 06:20:35 PM", true);
+		tree.equalityQuery("23073-12/21/2017 04:05:57 PM", true);
+		System.out.println("Number of Matches " + tree.rangeQuery("16148-01/01/2017 03:41:25 PM", "23073-12/21/2017 04:05:57 PM"));
+		
+//		tree.equalityQuery("RUSSELL STREET", true);
+//		tree.equalityQuery("WILLIAM STREET", true);
+//		tree.equalityQuery("KING STREET", true);
+//		tree.equalityQuery("BOURKE STREET", true);
+//		tree.equalityQuery("ALBERT STREET", true);
+//		tree.equalityQuery("A'BECKETT STREET", true);
+//		tree.rangeQuery("ALBERT STREET", "KING STREET");
 //		tree.printLeaves();
+		
+//		System.out.println("DEPTH: " + tree.getHeight(tree.getFirstLeaf(), 0));
+//		tree.printLeaves();
+		tree.close();
 		
 		endTime = System.nanoTime();
 		System.err.println("--------------------------------------------------------------------------------");

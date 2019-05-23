@@ -3,7 +3,7 @@ package bpIndexLib;
 import java.util.Arrays;
 
 public class bpLeafNode implements bpNode {
-	private int offset;
+	private int offset = -1;
 	private bpIndexNode parent;
 	private int parentOffset = -1;
 	private int maxSize; // Max number of data entries
@@ -85,6 +85,7 @@ public class bpLeafNode implements bpNode {
 
 	public void setNextLeaf(bpLeafNode nextLeaf) {
 		this.nextLeaf = nextLeaf;
+		nextLeafOffset = nextLeaf.getOffset();
 	}
 
 	public bpLeafNode getPrevLeaf() {
@@ -93,6 +94,7 @@ public class bpLeafNode implements bpNode {
 
 	public void setPrevLeaf(bpLeafNode prevLeaf) {
 		this.prevLeaf = prevLeaf;
+		prevLeafOffset = prevLeaf.getOffset();
 	}
 	
 	public void setParent(bpIndexNode parent) {

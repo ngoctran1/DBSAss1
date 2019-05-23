@@ -1,9 +1,6 @@
 import java.io.*;
 
-import dbLoadLib.LineProcess;
-import dbLoadLib.Page;
-import dbLoadLib.Record;
-
+import bpIndexLib.bpTree;
 public class bpIndexQuery {
 	private static final int EXPECTED_ARGS = 3;
 	
@@ -11,44 +8,46 @@ public class bpIndexQuery {
 		long beginTime;
 		long endTime;
 		String query = null;
-		int nodeSize = 0;
-		byte[] data = null;
+		String query2 = null;
 		RandomAccessFile bpFile = null;
-		Page page;
 		int numPages = 0;
 		int recordsRead = 0;
-		Record record;
-		String recordDAName;
 		String bpFileName = null;
-		
+		bpTree tree = null;
+		boolean equalitySearch = true;
 		// Parse arguments
-		if(args.length == EXPECTED_ARGS) {
-			query = args[2];
+		if(args.length <= EXPECTED_ARGS && args.length > 1) {
 			bpFileName = args[0];
-			try {
-				nodeSize = Integer.parseInt(args[1]);
-			} catch(NumberFormatException e) {
-				System.err.println("Invalid page size.");
-				System.exit(1);
+			query = args[1];
+			if(args.length == EXPECTED_ARGS) {
+				equalitySearch = false;
+				query2 = args[2];
 			}
 		} else {
 			System.err.println("Invalid parameters. Please use the following:");
-			System.err.println("java dbquery text pagesize");
+			System.err.println("Equality Query: java dbquery <B+ Tree Index File> <Query>");
+			System.err.println("Range Query: java dbquery <B+ Tree Index File> <Query1> <Query2>");
+			System.err.println("Ensurre queries are enclosed in quotation marks if they include spaces.");
 			System.exit(1);
 		}
 		
 		System.out.println("--------------------------------------------------------------------------------");
 		System.out.println("INPUTS\n");
 		System.out.println("B+ File: " + bpFileName);
-		System.out.println("Node Size: " + nodeSize);
 		System.out.println("Query: " + query);
 		System.out.println("--------------------------------------------------------------------------------");
 		beginTime = System.nanoTime();
 		try {
-			System.out.println("MATCHES");
-//			bpFile = new RandomAccessFile(bpFileName, "rw");
+			bpFile = new RandomAccessFile(bpFileName, "rw");
+			tree = new bpTree(bpFile);
 			
-			// Read in first (root) node
+			System.out.println("MATCHES");
+			if(equalitySearch) {
+				tree.equalityQuery(query, true);
+			} else {
+				System.out.println("Number of Matches: " + tree.rangeQuery(query, query2));
+			}
+//			tree.printLeaves();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

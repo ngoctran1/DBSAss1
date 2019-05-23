@@ -47,23 +47,37 @@ public class bpIndexNode implements bpNode {
 	}
 	
 	public void setKey(int index, String key) {
-		keys.set(index, key);
+		if(keys.size() <= index) {
+			keys.add(index, key);
+		} else {
+			keys.set(index, key);
+		}
 	}
 	
 	public bpNode getChild(int index) {
-		return children.get(index);
+		if(index == 0) {
+			if(children.size() == 0) {
+				return null;
+			} else {
+				return children.get(index);
+			}
+		} else if(index > size) {
+			return null;
+		} else {
+			if(children.size() <= index) {
+				return null;
+			} else {
+				return children.get(index);
+			}
+		}
+		
 	}
 	
 	public void setChild(int index, bpNode child) {
 		if(index == 0 && size == 0) {
 			children.add(child);
 			childrenOffset.add(child.getOffset());
-			System.out.println("Successfully added " + child.getKey(0));
 		} else {
-//			if(childrenOffset.get(index) == -1) {
-//				size++;
-//			}
-//			children.set(index, child);
 			childrenOffset.set(index, child.getOffset());
 		}
 	}
@@ -75,13 +89,13 @@ public class bpIndexNode implements bpNode {
 		}
 		for(int i = 0; i < size; i++) {
 			if(key.compareTo(keys.get(i)) < 0) {
-				if(i == 0) {
-					// TODO: Check whether the node goes after or before P0
-					insertedIndex = i + 1;
-				} else {
-					insertedIndex = i + 1;
-				}
-				System.out.println("Adding " + key + " to index " + insertedIndex + "of Node");
+//				if(i == 0) {
+//					// TODO: Check whether the node goes after or before P0
+//					insertedIndex = i + 1;
+//				} else {
+//					
+//				}
+				insertedIndex = i + 1;
 				children.add(insertedIndex, child);
 				childrenOffset.add(insertedIndex, child.getOffset());
 				keys.add(i, key);
@@ -90,7 +104,6 @@ public class bpIndexNode implements bpNode {
 			}
 		}
 		if(insertedIndex == -1) {
-			System.out.println("Adding " + key + " to end of node");
 			children.add(child);
 			childrenOffset.add(child.getOffset());
 			keys.add(key);
@@ -127,6 +140,10 @@ public class bpIndexNode implements bpNode {
 	}
 	
 	public void setChildOffset(int index, int offset) {
-		childrenOffset.set(index, offset);
+		if(childrenOffset.size() <= index) {
+			childrenOffset.add(index, offset);
+		} else {
+			childrenOffset.set(index, offset);
+		}
 	}
 }
