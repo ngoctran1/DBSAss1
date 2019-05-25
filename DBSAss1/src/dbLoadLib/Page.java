@@ -166,7 +166,6 @@ public class Page {
 		// Write Records
 		for(int i = 0; i < slots.size(); i++) {
 			record = slots.get(i);
-			//offsets = record.getOffsets(fileCursor);
 			offsets = record.getOffsets(0);
 			data = record.getData();
 			

@@ -57,28 +57,28 @@ public class bpIndexNode implements bpNode {
 	}
 	
 	public int addKey(String key, bpNode child) {
-			int insertedIndex = -1;
-			if(size == maxSize) {
-				return insertedIndex;
-			}
-			for(int i = 0; i < size; i++) {
-				if(key.compareTo(keys.get(i)) < 0) {
-					insertedIndex = i + 1;
-					children.add(insertedIndex, child);
-					childrenOffset.add(insertedIndex, child.getOffset());
-					keys.add(i, key);
-					size++;
-					break;
-				}
-			}
-			if(insertedIndex == -1) {
-				children.add(child);
-				childrenOffset.add(child.getOffset());
-				keys.add(key);
-				size++;
-			}
+		int insertedIndex = -1;
+		if(size == maxSize) {
 			return insertedIndex;
 		}
+		for(int i = 0; i < size; i++) {
+			if(key.compareTo(keys.get(i)) < 0) {
+				insertedIndex = i + 1;
+				keys.add(i, key);
+				children.add(insertedIndex, child);
+				childrenOffset.add(insertedIndex, child.getOffset());
+				size++;
+				break;
+			}
+		}
+		if(insertedIndex == -1) {
+			children.add(child);
+			childrenOffset.add(child.getOffset());
+			keys.add(key);
+			size++;
+		}
+		return insertedIndex;
+	}
 
 	public String getKey(int index) {
 		return keys.get(index);

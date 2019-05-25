@@ -6,14 +6,14 @@ import dbLoadLib.Page;
 import dbLoadLib.Record;
 import bpIndexLib.*;
 
-public class bpIndex {
+public class bpIndexCreate {
 	private static final int EXPECTED_ARGS = 4;
 	private static int[] heapDataTypes = new int[]{LineProcess.STR_TYPE, LineProcess.STR_TYPE,
 			  LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
 			  LineProcess.STR_TYPE, LineProcess.INT_TYPE, LineProcess.STR_TYPE,
 			  LineProcess.STR_TYPE, LineProcess.STR_TYPE, LineProcess.INT_TYPE,
 			  LineProcess.STR_TYPE};
-	private static int subFileSize = 100; // Num data entries in subfiles in out of main memory merge sort
+	private static int subFileSize = 10000; // Num data entries in subfiles in out of main memory merge sort
 	private static int numMergeLimit = 100; // Num of subfiles to simultaneously merge
 	
 	public static void main(String[] args) {
@@ -105,7 +105,7 @@ public class bpIndex {
 					 
 					// Start new subfile if needed
 					if(recordsSubFile == subFileSize) {
-						// Sort subfile here
+						// Sort subfile
 						sortMerge.mergeSort(subFileKeys, subFileKeyPageID, subFileKeySlotID, 0, subFileSize);
 						
 						// Write out sorted subfile
@@ -140,146 +140,21 @@ public class bpIndex {
 		System.err.printf("Time to Read DB and Sort Subfiles: %d ms\n", (endTime - beginTime) / 1000000);
 		System.err.println("Num Pages Read: " + numPages);
 		System.err.println("Num Records Read: " + recordsRead);
-		
 		System.err.println("--------------------------------------------------------------------------------");
 		System.err.println("MERGING\n");
+		
 		beginTime = System.nanoTime();
+		
 		// Write out any remaining data
 		try { 
 			if(subFile != null) {
 				numSubFiles++;
 				subFile.close();
 			}
-			
-			// Merge sort the files written
-			String fileNamePrefix = null;
-			BufferedReader[] filesToMerge = new BufferedReader[numMergeLimit];
-			String[] fileNames = new String[numMergeLimit];
-			
-			int totalFilesCompleted = 0;
-			int numLayer = 0;
-			int currentQueue = numSubFiles;
-			int nextQueue = 0;
-			int numMerging = -1;
-			String[] newDataLines;
-			String goal = null;
-			int goalIndex = -1;
-			String currentKey;
-			int numValueExists;
-			String prevFileName = null;
-			String currentFileName = null;
-			String openFileName = null;
-			BufferedWriter mergedFile = null;
-			
-			// Loop through all files to be merged
-			while(totalFilesCompleted != currentQueue + nextQueue) {
-				while(currentQueue > 0) {
-					numMerging = -1;
-					for(int j = 0; j < numMergeLimit; j++) {
-						StringBuilder prefixBuilder = new StringBuilder();
-						for(int k = 0; k < numLayer; k++) {
-							prefixBuilder.append('M');
-						}
-						fileNamePrefix = prefixBuilder.toString();
-						try {
-							openFileName = "subfile." + fileNamePrefix + (totalFilesCompleted + j);
-							filesToMerge[j] = new BufferedReader(new FileReader(openFileName));
-							fileNames[j] = openFileName;
-						} catch (FileNotFoundException e) {
-							numMerging = j;
-							break;
-						}
-					}
-					if(numMerging == -1) {
-						numMerging = numMergeLimit;
-					}
-					
-					// Merge read in files
-					mergedFile = null;
-					newDataLines = new String[numMerging];
-					numValueExists = -1;
-					while(numValueExists != 0) {
-						numValueExists = 0;
-						
-						// Pull in new data if needed
-						for(int k = 0; k < numMerging; k++) {
-							if(newDataLines[k] == null) {
-								newDataLines[k] = filesToMerge[k].readLine();
-							}
-						}
-						
-						// Find smallest data
-						for(int k = 0; k < numMerging; k++) {
-							// Check for any smallest data
-							if(newDataLines[k] != null) {
-								currentKey = newDataLines[k].split(",")[0];
-								// Set initial smallest
-								if(goal == null) {
-									goal = currentKey;
-									goalIndex = k;
-								} else if(currentKey.compareTo(goal) < 0) {
-									goal = currentKey;
-									goalIndex = k;
-								}
-								numValueExists++;
-							}
-						}
-						
-						if(goal != null) {
-							// Write smallest data
-							if(mergedFile == null) {
-								currentFileName = "subfile." + fileNamePrefix + 'M' + nextQueue;
-								mergedFile = new BufferedWriter(new FileWriter("subfile." + fileNamePrefix + 'M' + nextQueue));
-							}
-							mergedFile.write(newDataLines[goalIndex]);
-							mergedFile.write("\n");
-							newDataLines[goalIndex] = null;
-							goal = null;
-							goalIndex = -1;
-						}
-					}
-					currentQueue -= numMerging;
-					for(int k = 0; k < numMerging; k++) {
-						filesToMerge[k].close();
-						
-						// Delete subfiles
-						File temp = new File(fileNames[k]);
-						temp.delete();
-						fileNames[k] = null;
-						totalFilesCompleted++;
-					}
-					
-					// Add new merged file to next queue
-					if(mergedFile != null) {
-						prevFileName = currentFileName;
-						mergedFile.close();
-						nextQueue++;
-					}
-				}
-				
-				if(nextQueue > 1 && currentQueue <= 0) {
-					// Finished merging current layer, reset for next layer
-					currentQueue = nextQueue;
-					nextQueue = 0;
-					numLayer++;
-					totalFilesCompleted = 0;
-				} else {
-					// No more files to merge
-					if(mergedFile != null) {
-						mergedFile.close();
-					} else {
-						currentFileName = prevFileName;
-					}
-
-					File oldFile = new File(currentFileName);
-					File temp = new File("sortedData.txt");
-					temp.delete();
-					oldFile.renameTo(temp);
-					break;
-				}
-			}
+			sortMerge.mergeFiles(numSubFiles, numMergeLimit);
 		} catch (IOException e) {
 			e.printStackTrace();
+			System.exit(0);
 		}
 		endTime = System.nanoTime();
 

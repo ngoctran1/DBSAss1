@@ -56,11 +56,11 @@ public class dbload {
 			System.exit(1);
 		}
 		
-		System.out.println("--------------------------------------------------------------------------------");
-		System.out.println("INPUTS\n");
-		System.out.println("Page size: " + maxPageSize + " Bytes");
-		System.out.println("Input file: " + inputFile);
-		System.out.println("--------------------------------------------------------------------------------");
+		System.err.println("--------------------------------------------------------------------------------");
+		System.err.println("INPUTS\n");
+		System.err.println("Page size: " + maxPageSize + " Bytes");
+		System.err.println("Input file: " + inputFile);
+		System.err.println("--------------------------------------------------------------------------------");
 		
 		try {
 			input = new BufferedReader(new FileReader(inputFile));
@@ -78,15 +78,15 @@ public class dbload {
 			endTime = System.nanoTime();
 			input.close();
 			
-			System.out.println("--------------------------------------------------------------------------------");
-			System.out.println("SUMMARY STATS\n");
+			System.err.println("--------------------------------------------------------------------------------");
+			System.err.println("SUMMARY STATS\n");
 			System.out.printf("Total Time Taken: %d ms\n", (endTime - beginTime) / 1000000);
-			System.out.println("Total records read: " + recordsRead);
-			System.out.println("Total pages used: " + numPages);
-			System.out.println("--------------------------------------------------------------------------------");
+			System.err.println("Total records read: " + recordsRead);
+			System.err.println("Total pages used: " + numPages);
+			System.err.println("--------------------------------------------------------------------------------");
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
-			System.exit(0);
+			System.err.println(e.getMessage());
+			System.exit(1);
 		}
 	}
 

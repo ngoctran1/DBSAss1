@@ -1,21 +1,17 @@
 import java.io.*;
 
-import dbLoadLib.LineProcess;
 import dbLoadLib.Page;
 import dbLoadLib.Record;
 import dbLoadLib.Heap;
 
 public class dbquery {
 	private static final int EXPECTED_ARGS = 5;
-	private static int[] heapDataTypes = new int[]{LineProcess.STR_TYPE, LineProcess.STR_TYPE,
-			  LineProcess.INT_TYPE, LineProcess.STR_TYPE, LineProcess.STR_TYPE,
-			  LineProcess.STR_TYPE, LineProcess.INT_TYPE, LineProcess.STR_TYPE,
-			  LineProcess.STR_TYPE, LineProcess.STR_TYPE, LineProcess.INT_TYPE,
-			  LineProcess.STR_TYPE};
 	
 	public static void main(String[] args) {
 		long beginTime;
 		long endTime;
+		long readHeapStartTime;
+		long readHeapFileTime = 0;
 		
 		Heap heap;
 		int heapPageSize = -1;
@@ -29,7 +25,7 @@ public class dbquery {
 		int recordsRead = 0;
 		
 		Record record;
-		String recordDAName;
+		String attribute;
 
 		String query = null;
 		String query2 = null;
@@ -37,7 +33,7 @@ public class dbquery {
 		boolean equalitySearch = true;
 		
 		// Parse arguments
-		if(args.length <= EXPECTED_ARGS) {
+		if(args.length == EXPECTED_ARGS || args.length == EXPECTED_ARGS - 1) {
 			heapFileName = args[0];
 			query = args[3];
 			try {
@@ -53,51 +49,50 @@ public class dbquery {
 				query2 = args[4];
 			}
 		} else {
-			System.err.println("Invalid parameters. Please use the following:");
-			System.err.println("Equality Query: java dbquery <Heap File Name> <Heap Page Size> <Attribute Index> <Query>");
-			System.err.println("Range Query: java dbquery <Heap File Name> <Heap Page Size> <Attribute Index> <Query1> <Query2>");
+			printCommandError();
 			System.exit(1);
 		}
 		
-		System.out.println("--------------------------------------------------------------------------------");
-		System.out.println("INPUTS\n");
-		System.out.println("Heap File to Open: " + heapFileName);
-		System.out.println("Heap Page Size: " + heapPageSize);
-		System.out.println("Attribute Index: " + attributeIndex);
-		System.out.println("Search query: " + query);
-		System.out.println("--------------------------------------------------------------------------------");
+		System.err.println("--------------------------------------------------------------------------------");
+		System.err.println("INPUTS\n");
+		System.err.println("Heap File to Open: " + heapFileName);
+		System.err.println("Heap Page Size: " + heapPageSize);
+		System.err.println("Attribute Index: " + attributeIndex);
+		System.err.println("Search query: " + query);
+		System.err.println("--------------------------------------------------------------------------------");
 		beginTime = System.nanoTime();
 		try {
-			System.out.println("SEARCHING...\n");
+			System.err.println("SEARCHING...\n");
 			heap = new Heap(heapFileName, heapPageSize);
 			resultOutput = new BufferedWriter(new FileWriter(resultFile));
 			
 			while(true) {
 				//Load in a page
-				page = heap.getPage();
+				readHeapStartTime = System.nanoTime();
+				page = heap.getPage(-1);
+				readHeapFileTime += System.nanoTime() - readHeapStartTime;
+				
 				if(page == null) {
 					break;
 				}
-				
 				recordsRead += page.getNumRecords();
 				numPages++;
 				
-				// Search for DA_Name query
+				// Search for query
 				for(int i = 0; i < page.getNumRecords(); i++) {
 					record = page.getSlotByIndex(i);
-					recordDAName = new String(record.getData().get(attributeIndex));
+					attribute = new String(record.getData().get(attributeIndex));
 					if(equalitySearch == true) {
-						if(query.compareTo(recordDAName) == 0) {
+						if(query.compareTo(attribute) == 0) {
 							resultOutput.write(record.getReadableData());
 							resultOutput.write("\n");
 						}
 					} else {
-						if(recordDAName.compareTo(query) >= 0 && recordDAName.compareTo(query2) < 0) {
+						if(attribute.compareTo(query) >= 0 && attribute.compareTo(query2) < 0) {
 							resultOutput.write(record.getReadableData());
 							resultOutput.write("\n");
 						}
 					}
-					
 				}
 			}
 		} catch (IOException e) {
@@ -108,16 +103,25 @@ public class dbquery {
 			resultOutput.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-			System.exit(0);
+			System.exit(1);
 		}
-		System.out.println("Results printed to file: " + resultFile);
+
+		System.err.println("Results printed to file: " + resultFile);
 		endTime = System.nanoTime();
 		
-		System.out.println("--------------------------------------------------------------------------------");
-		System.out.println("SUMMARY STATS\n");
-		System.out.printf("Total Time Taken: %d ms\n", (endTime - beginTime) / 1000000);
-		System.out.println("Total Records Read: " + recordsRead);
-		System.out.println("Total Pages Read: " + numPages);
-		System.out.println("--------------------------------------------------------------------------------");
+		long totalTime = endTime - beginTime;
+		System.err.println("--------------------------------------------------------------------------------");
+		System.err.println("SUMMARY STATS\n");
+		System.err.println("Total Records Read: " + recordsRead);
+		System.err.println("Total Pages Read: " + numPages);
+		System.err.printf("\nHeap File Read Time: %d ms\n", readHeapFileTime / 1000000);
+		System.err.printf("Total Time Taken: %d ms\n", (totalTime) / 1000000);
+		System.err.println("--------------------------------------------------------------------------------");
+	}
+	
+	private static void printCommandError() {
+		System.err.println("Invalid parameters. Please use the following:");
+		System.err.println("Equality Query: java dbquery <Heap File Name> <Heap Page Size> <Attribute Index> <Query>");
+		System.err.println("Range Query: java dbquery <Heap File Name> <Heap Page Size> <Attribute Index> <Query1> <Query2>");
 	}
 }
