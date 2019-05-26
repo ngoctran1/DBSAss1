@@ -40,7 +40,7 @@ public class bpIndexQuery {
 					equalitySearch = false;
 					query2 = args[3];
 				}
-			} else {
+			} else if (args.length >= MIN_ARGS + 1){
 				heapFileName = args[0];
 				bpFileName = args[2];
 				query = args[3];
@@ -120,10 +120,10 @@ public class bpIndexQuery {
 	
 	private static void printCommandError() {
 		System.err.println("Invalid parameters. Please use the following:\n");
-		System.err.println("Equality Query (Not read heap): java dbquery -no-heap <B+ Tree Index File> <Query>");
-		System.err.println("Range Query: java dbquery "+ NO_HEAP_FLAG + " <B+ Tree Index File> <Query1> <Query2>\n");
-		System.err.println("Equality Query (Not read heap): java dbquery "+ NO_HEAP_FLAG + " <B+ Tree Index File> <Query>");
-		System.err.println("Range Query: java dbquery <Heap File> <Heap File Page Size> <B+ Tree Index File> <Query1> <Query2>\n");
+		System.err.println("Equality Query: java bpIndexQuery <Heap File> <Heap File Page Size> <B+ Tree Index File> <Query>");
+		System.err.println("Range Query: java bpIndexQuery <Heap File> <Heap File Page Size> <B+ Tree Index File> <Query1> <Query2>\n");
+		System.err.println("Equality Query (No Input heap): java bpIndexQuery " + NO_HEAP_FLAG +  " <B+ Tree Index File> <Query>");
+		System.err.println("Range (No Input Heap) Query: java bpIndexQuery " + NO_HEAP_FLAG +  " <B+ Tree Index File> <Query1> <Query2>\n");
 		System.err.println("Ensure queries are enclosed in quotation marks if they include spaces.");
 	}
 }

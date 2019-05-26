@@ -12,7 +12,7 @@ import dbLoadLib.Page;
 
 public class bpTree {
 	private static final int INT_SIZE = 4;
-	private static final int MAX_FIELD_SIZE = 50;
+	private static final int MAX_KEY_SIZE = 50;
 
 	// Leaf nodes are bigger than index nodes. They contain (2N+6) INT and N STR where N number of keys
 	private int nodeByteSize; 
@@ -34,25 +34,29 @@ public class bpTree {
 		System.err.println("READING B+ INDEX FILE\n");
 		try {
 			nodeMaxSize = bpFile.readInt();
-			nodeByteSize = (3 * nodeMaxSize + 6) * INT_SIZE + nodeMaxSize * (MAX_FIELD_SIZE + 1) + 2;
+			nodeByteSize = (3 * nodeMaxSize + 6) * INT_SIZE + nodeMaxSize * (MAX_KEY_SIZE + 1) + 2;
 			
 			System.err.println("nodeByteSize = " + nodeByteSize);
 			System.err.println("Max Node Size: " + nodeMaxSize);
 			
 			// Set root offset
-			root = new bpIndexNode(nodeMaxSize);
+			root = new bpIndexNode(nodeMaxSize, MAX_KEY_SIZE);
 			root.setOffset(bpFile.readInt());
 			
 			// Read in first leaf node
-			firstLeaf = new bpLeafNode(nodeMaxSize);
+			firstLeaf = new bpLeafNode(nodeMaxSize, MAX_KEY_SIZE);
 			firstLeaf.setOffset((int)bpFile.getFilePointer());
 			bpFile.readBoolean();
-			readLeafNode(firstLeaf);
+//			readLeafNode(firstLeaf);
+			firstLeaf.readNode(readData(bpFile, true));
+			numLeavesRead++;
 			
 			// Read in root node
 			bpFile.seek(root.getOffset());
 			bpFile.readBoolean();
-			readIndexNode(root);
+			
+			root.readNode(readData(bpFile, false));
+//			readIndexNode(root);
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.exit(1);
@@ -61,9 +65,9 @@ public class bpTree {
 	
 	// Bulk Load
 	public bpTree(BufferedReader inputData, int nodeMaxSize) {
-		nodeByteSize = (3 * nodeMaxSize + 6) * INT_SIZE + nodeMaxSize * (MAX_FIELD_SIZE + 1) + 2;
+		nodeByteSize = (3 * nodeMaxSize + 6) * INT_SIZE + nodeMaxSize * (MAX_KEY_SIZE + 1) + 2;
 		this.nodeMaxSize = nodeMaxSize;
-		root = new bpIndexNode(nodeMaxSize);
+		root = new bpIndexNode(nodeMaxSize, MAX_KEY_SIZE);
 		String[] dataLine = null;
 		boolean setFirstPointer = false;
 		int numLeafNodes = 0;
@@ -85,7 +89,7 @@ public class bpTree {
 		
 		outer:while(true) {	
 			// Create Leaf Node and read in data
-			newLeafNode = new bpLeafNode(nodeMaxSize);
+			newLeafNode = new bpLeafNode(nodeMaxSize, MAX_KEY_SIZE);
 			for(int i = 0; i < nodeMaxSize; i++) {
 				try {
 					dataLine = inputData.readLine().split(",");
@@ -94,7 +98,7 @@ public class bpTree {
 				}
 				newLeafNode.addKey(dataLine[0], Integer.parseInt(dataLine[1]), Integer.parseInt(dataLine[2]));
 			}
-			writeNode(newLeafNode);
+			writeNode(bpFile, newLeafNode);
 			
 			// Add leaf node to tree
 			if(!setFirstPointer) {
@@ -104,15 +108,15 @@ public class bpTree {
 				lastLeaf = newLeafNode;
 				setFirstPointer = true;
 				
-				writeNode(newLeafNode);
+				writeNode(bpFile, newLeafNode);
 			} else {
 				insertLeafNode(newLeafNode);
 				
 				// Update leaf node pointers
 				lastLeaf.setNextLeaf(newLeafNode);
-				writeNode(lastLeaf);
+				writeNode(bpFile, lastLeaf);
 				newLeafNode.setPrevLeaf(lastLeaf);
-				writeNode(newLeafNode);
+				writeNode(bpFile, newLeafNode);
 				
 				lastLeaf = newLeafNode;
 			}
@@ -122,21 +126,21 @@ public class bpTree {
 		
 		// Add final node if it isn't empty
 		if(newLeafNode != null && newLeafNode.getSize() > 0) {
-			writeNode(newLeafNode);
+			writeNode(bpFile, newLeafNode);
 			if(!setFirstPointer) {
 				insertFirstNode(newLeafNode);
 				firstLeaf = newLeafNode;
 				lastLeaf = newLeafNode;
 				
-				writeNode(newLeafNode);
+				writeNode(bpFile, newLeafNode);
 			} else {
 				insertLeafNode(newLeafNode);
 				
 				// Update leaf nodes
 				lastLeaf.setNextLeaf(newLeafNode);
-				writeNode(lastLeaf);
+				writeNode(bpFile, lastLeaf);
 				newLeafNode.setPrevLeaf(lastLeaf);
-				writeNode(newLeafNode);
+				writeNode(bpFile, newLeafNode);
 				
 				lastLeaf = newLeafNode;
 			}
@@ -162,14 +166,14 @@ public class bpTree {
 		// Push key value into this node
 		pushUp(destNode, node, node.getKey(0));
 		
-		writeNode(destNode);
+		writeNode(bpFile, destNode);
 	}
 	
 	// Adds in newKeyNode as a child of pushIntoNode and sets the key for it as newKey
 	// Splits node if already full and pushes middle key up into parent node
 	private void pushUp(bpIndexNode pushIntoNode, bpNode newKeyNode, String newKey) {
 		if(pushIntoNode.getSize() == nodeMaxSize) {
-			bpIndexNode newNode = new bpIndexNode(nodeMaxSize);
+			bpIndexNode newNode = new bpIndexNode(nodeMaxSize, MAX_KEY_SIZE);
 			
 			int startCopyIndex = ceilingDivision(pushIntoNode.getSize(), 2) + 1;
 			int copyLength = (pushIntoNode.getSize() / 2) - 1; // Second half - Key to push up
@@ -190,13 +194,13 @@ public class bpTree {
 				pushIntoNode.removeKey(pushValueIndex);
 			}
 			
-			writeNode(newNode);
+			writeNode(bpFile, newNode);
 			newKeyNode.setParent(newNode);
 			
 			// Push middle value up tree
 			if(readParentNode(pushIntoNode) == null) {
 				// Needs new root
-				bpIndexNode newRoot = new bpIndexNode(nodeMaxSize);
+				bpIndexNode newRoot = new bpIndexNode(nodeMaxSize, MAX_KEY_SIZE);
 				newRoot.setChild(0, pushIntoNode);
 				newRoot.setChildOffset(0, pushIntoNode.getOffset());
 				updateRoot(newRoot);
@@ -205,13 +209,13 @@ public class bpTree {
 				pushIntoNode.setParentOffset(newRoot.getOffset());
 				root = newRoot;
 				
-				writeNode(pushIntoNode);
-				writeNode(newKeyNode);
+				writeNode(bpFile, pushIntoNode);
+				writeNode(bpFile, newKeyNode);
 				
 				pushUp(newRoot, newNode, pushKey);
 			} else {
-				writeNode(pushIntoNode);
-				writeNode(newKeyNode);
+				writeNode(bpFile, pushIntoNode);
+				writeNode(bpFile, newKeyNode);
 				
 				pushUp(readParentNode(pushIntoNode), newNode, pushKey);
 			}
@@ -220,8 +224,8 @@ public class bpTree {
 			pushIntoNode.addKey(newKey, newKeyNode);
 			newKeyNode.setParent(pushIntoNode);
 			
-			writeNode(pushIntoNode);
-			writeNode(newKeyNode);
+			writeNode(bpFile, pushIntoNode);
+			writeNode(bpFile, newKeyNode);
 		}
 	}
 	
@@ -457,14 +461,14 @@ public class bpTree {
 		if(node.getNextLeafOffset() != -1) {
 			if(node.getNextLeaf() != null) {
 				// Already in memory
-				System.err.println("Going to: " + node.getNextLeaf().getKey(0));
 				return node.getNextLeaf();
 			} else {
-				bpLeafNode leafNode = new bpLeafNode(nodeMaxSize);
+				bpLeafNode leafNode = new bpLeafNode(nodeMaxSize, MAX_KEY_SIZE);
 				leafNode.setOffset(node.getNextLeafOffset());
 				try {
 					bpFile.seek(leafNode.getOffset() + 1);
-					readLeafNode(leafNode);
+					leafNode.readNode(readData(bpFile, true));
+					numLeavesRead++;
 				} catch (IOException e) {
 					e.printStackTrace();
 					System.exit(1);
@@ -491,11 +495,12 @@ public class bpTree {
 					
 					// Read in type of node
 					if(bpFile.readBoolean()) {
-						child = new bpLeafNode(nodeMaxSize);
-						readLeafNode(child);
+						child = new bpLeafNode(nodeMaxSize, MAX_KEY_SIZE);
+						child.readNode(readData(bpFile, true));
+						numLeavesRead++;
 					} else {
-						child = new bpIndexNode(nodeMaxSize);
-						readIndexNode(child);
+						child = new bpIndexNode(nodeMaxSize, MAX_KEY_SIZE);
+						child.readNode(readData(bpFile, false));
 					}
 					
 					child.setOffset(parent.getChildOffset(childIndex));
@@ -518,12 +523,12 @@ public class bpTree {
 				// Already in memory
 				return node.getParent();
 			} else {
-				bpIndexNode parent = new bpIndexNode(nodeMaxSize);
+				bpIndexNode parent = new bpIndexNode(nodeMaxSize, MAX_KEY_SIZE);
 				parent.setOffset(node.getParentOffset());
 				
 				try {
 					bpFile.seek(parent.getOffset() + 1); // Skip type boolean
-					readIndexNode(parent);
+					parent.readNode(readData(bpFile, false));
 				} catch (IOException e) {
 					e.printStackTrace();
 					System.exit(1);
@@ -536,96 +541,21 @@ public class bpTree {
 		return null;
 	}
 	
-	private void readIndexNode(bpNode node) throws IOException {
-		byte[] data;
-		byte[] intData;
-		bpIndexNode indexNode = (bpIndexNode) node;
-		
-		// Read node data
-		data = readNodeCommon(node, false);
-
-		// Process binary data of index node specific data
-		for(int i = 0; i < node.getSize(); i++) {
-			intData = Arrays.copyOfRange(data, i * INT_SIZE, (i + 1) * INT_SIZE);
-			indexNode.setChildOffset(i, ByteBuffer.wrap(intData).getInt());
-		}
-		intData = Arrays.copyOfRange(data, node.getSize() * INT_SIZE, (node.getSize() + 1) * INT_SIZE);
-		indexNode.setChildOffset(node.getSize(), ByteBuffer.wrap(intData).getInt());
-	}
 	
-	private void readLeafNode(bpNode node) throws IOException {
+	// Reads in correct amount of binary data for use with readNode methods of nodes.
+	private byte[] readData(RandomAccessFile bpFile, boolean leaf) throws IOException {
 		byte[] data;
-		byte[] intData;
-		bpLeafNode leafNode = (bpLeafNode) node;
 		
-		numLeavesRead++;
-		
-		// Read node data
-		data = readNodeCommon(node, true);
-		
-		// Process binary data of leaf node specific data
-		for(int i = 0; i < node.getSize(); i++) {
-			intData = Arrays.copyOfRange(data, 2 * i * INT_SIZE, (2 * i + 1) * INT_SIZE);
-			leafNode.setKeyPageID(i, ByteBuffer.wrap(intData).getInt());
-			
-			intData = Arrays.copyOfRange(data, (2 * i + 1) * INT_SIZE, (2 * i + 2) * INT_SIZE);
-			leafNode.setKeySlotID(i, ByteBuffer.wrap(intData).getInt());
-		}
-		intData = Arrays.copyOfRange(data, 2 * node.getSize() * INT_SIZE, (2 * node.getSize() + 1) * INT_SIZE);
-		leafNode.setNextLeafOffset(ByteBuffer.wrap(intData).getInt());
-		
-		intData = Arrays.copyOfRange(data, (2 * node.getSize() + 1) * INT_SIZE, (2 * node.getSize() + 2) * INT_SIZE);
-		leafNode.setPrevLeafOffset(ByteBuffer.wrap(intData).getInt());
-	}
-	
-	// Reads in data common to both index and leaf nodes
-	// Returns remaining binary data for leaf / index node
-	private byte[] readNodeCommon(bpNode node, boolean leaf) throws IOException {
-		int keyLength;
-		byte[] keyData;
-		byte[] valueData;
-		byte[] remainingData;
-		String key;
-		
-		// Read in binary data of entire node, also split off leaf/index specific data
 		if(leaf) {
-			keyData = new byte[2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize + (2 * nodeMaxSize + 2) * INT_SIZE];
-			bpFile.read(keyData);
-			remainingData = Arrays.copyOfRange(keyData, 2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize,
-														2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize + (2 * nodeMaxSize + 2) * INT_SIZE);
+			data = new byte[2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * nodeMaxSize + (2 * nodeMaxSize + 2) * INT_SIZE];
 		} else {
-			keyData = new byte[2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize + (nodeMaxSize + 1) * INT_SIZE];
-			bpFile.read(keyData);
-			remainingData = Arrays.copyOfRange(keyData, 2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize,
-														2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize + (nodeMaxSize + 1) * INT_SIZE);
+			data = new byte[2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * nodeMaxSize + (nodeMaxSize + 1) * INT_SIZE];
 		}
-
-		// Read in parentOffset and Size
-		valueData = Arrays.copyOfRange(keyData, 0, INT_SIZE);
-		node.setSize(ByteBuffer.wrap(valueData).getInt());
-		valueData = Arrays.copyOfRange(keyData, INT_SIZE, 2 * INT_SIZE);
-		node.setParentOffset(ByteBuffer.wrap(valueData).getInt());
-		
-		// Reduce key data array (leave out leaf/index specific data)
-		keyData = Arrays.copyOfRange(keyData, 2 * INT_SIZE , 2 * INT_SIZE + (INT_SIZE + MAX_FIELD_SIZE) * nodeMaxSize);
-		
-		// Process binary data
-		for(int i = 0; i < node.getSize(); i++) {
-			// Read in key length
-			valueData = Arrays.copyOfRange(keyData, i * (INT_SIZE + MAX_FIELD_SIZE), i * (INT_SIZE + MAX_FIELD_SIZE) + INT_SIZE);
-			keyLength = ByteBuffer.wrap(valueData).getInt();
-			
-			// Read in key
-			valueData = Arrays.copyOfRange(keyData, i * (INT_SIZE + MAX_FIELD_SIZE) + INT_SIZE, i * (INT_SIZE + MAX_FIELD_SIZE) + INT_SIZE + keyLength);
-			key = new String(valueData);
-			
-			// Read in key binary data
-			node.setKey(i, key);
-		}
-		return remainingData;
+		bpFile.read(data);
+		return data;
 	}
 	
-	private void writeNode(bpNode node) {
+	private void writeNode(RandomAccessFile bpFile, bpNode node) {
 		try {
 			// Check if a new node is being written or updating an existing none
 			if(node.getOffset() == -1) {
@@ -636,59 +566,11 @@ public class bpTree {
 				bpFile.seek(node.getOffset());
 			}
 			
-			// Write out type of node (0 = Leaf, 1 = Index)
-			if(node instanceof bpLeafNode) {
-				bpFile.writeBoolean(true);
-			} else {
-				bpFile.writeBoolean(false);
-			}
-			
-			// Write out parentOffset and Size
-			bpFile.writeInt(node.getSize());
-			bpFile.writeInt(node.getParentOffset());
-			
-			// Write out keys
-			for(int i = 0; i < node.getSize(); i++) {
-				String key = node.getKey(i);
-				byte[] keyData;
-				
-				// Write out key length (number of bytes in string)
-				keyData = key.getBytes();
-				bpFile.writeInt(keyData.length);
-				
-				// Write out key
-				bpFile.write(keyData);
-				
-				// Seek to next key position
-				bpFile.skipBytes(MAX_FIELD_SIZE - keyData.length);
-			}
-			
-			// Skip empty keys
-			bpFile.skipBytes((INT_SIZE + MAX_FIELD_SIZE) * (nodeMaxSize - node.getSize()));
-			
 			// Write index / leaf node specific data
 			if(node instanceof bpLeafNode) {
-				bpLeafNode leafNode = (bpLeafNode) node;
-				
-				for(int i = 0; i < node.getSize(); i++) {
-					bpFile.writeInt(leafNode.getKeyPageID(i));
-					bpFile.writeInt(leafNode.getKeySlotID(i));
-				}
-				// Skip empty keys
-				bpFile.skipBytes(2 * INT_SIZE * (nodeMaxSize - node.getSize()));
-				
-				bpFile.writeInt(leafNode.getNextLeafOffset());
-				bpFile.writeInt(leafNode.getPrevLeafOffset());
+				((bpLeafNode) node).writeNode(bpFile);
 			} else {
-				bpIndexNode indexNode = (bpIndexNode) node;
-				
-				for(int i = 0; i < node.getSize(); i++) {
-					bpFile.writeInt(indexNode.getChildOffset(i));
-				}
-				bpFile.writeInt(indexNode.getChildOffset(node.getSize())); // N+1 pointers
-				
-				// Skip empty keys
-				bpFile.skipBytes(INT_SIZE * (nodeMaxSize - node.getSize()));
+				((bpIndexNode) node).writeNode(bpFile);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -710,8 +592,8 @@ public class bpTree {
 	}
 	
 	private void updateRoot(bpIndexNode root) {
-		writeNode(root);
 		try {
+			writeNode(bpFile, root);
 			bpFile.seek(INT_SIZE);
 			bpFile.writeInt(root.getOffset());
 			bpFile.seek(INT_SIZE);

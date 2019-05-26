@@ -1,65 +1,38 @@
 package bpIndexLib;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public class bpLeafNode implements bpNode {
-	private int offset = -1;
-	private int maxSize; // Max number of data entries
-	private int size; // Current number of data entries
-
-	private bpIndexNode parent;
-	private int parentOffset = -1;
+public class bpLeafNode extends bpNode {
+	private static final int INT_SIZE = 4;
+	private static final int MAX_KEY_SIZE = 50;
 
 	private bpLeafNode nextLeaf = null;
 	private bpLeafNode prevLeaf = null;
 	private int nextLeafOffset = -1;
 	private int prevLeafOffset = -1;
-	
-	private String[] keys;
+
 	private int[] keyPageID;
 	private int[] keySlotID;
 
-	public bpLeafNode(int maxSize) {
-		this.maxSize = maxSize;
-		size = 0;
-		keys = new String[maxSize];
+	public bpLeafNode(int maxSize, int maxKeySize) {
+		super(maxSize, maxKeySize);
+		
 		keyPageID = new int[maxSize];
 		keySlotID = new int[maxSize];
 		Arrays.fill(keyPageID, -1);
 		Arrays.fill(keySlotID, -1);
 	}
-
-	public int getOffset() {
-		return offset;
-	}
-
-	public void setOffset(int offset) {
-		this.offset = offset;
-	}
-
-	public int getSize() {
-		return size;
-	}
-
-	public void setSize(int size) {
-		this.size = size;
-	}
-
-	public bpIndexNode getParent() {
-		return parent;
-	}
-
-	public void setParent(bpIndexNode parent) {
-		this.parent = parent;
-		parentOffset = parent.getOffset();
-	}
-
-	public int getParentOffset() {
-		return parentOffset;
-	}
-
-	public void setParentOffset(int parentOffset) {
-		this.parentOffset = parentOffset;
+	
+	public bpLeafNode(int maxSize, int maxKeySize, byte[] data) {
+		super(maxSize, maxKeySize);
+		
+		keyPageID = new int[maxSize];
+		keySlotID = new int[maxSize];
+		Arrays.fill(keyPageID, -1);
+		Arrays.fill(keySlotID, -1);
 	}
 
 	public bpLeafNode getNextLeaf() {
@@ -97,30 +70,10 @@ public class bpLeafNode implements bpNode {
 	}
 
 	public int addKey(String key, int pageID, int slotID) {
-		if(size == maxSize) {
-			return -1;
-		}
-		
-		// Find empty spot to add entry
-		for(int i = 0; i < maxSize; i++) {
-			if(keyPageID[i] == -1) {
-				keys[i] = key;
-				keyPageID[i] = pageID;
-				keySlotID[i] = slotID;
-				size++;
-				return i;
-			}
-		}
-		
-		return -1;
-	}
-
-	public String getKey(int index) {
-		return keys[index];
-	}
-	
-	public void setKey(int index, String key) {
-		keys[index] = key;
+		int index = super.addKey(key);
+		keyPageID[index] = pageID;
+		keySlotID[index] = slotID;
+		return index;
 	}
 
 	public int getKeyPageID(int index) {
@@ -137,5 +90,47 @@ public class bpLeafNode implements bpNode {
 	
 	public void setKeySlotID(int index, int slotID) {
 		keySlotID[index] = slotID;
+	}
+	
+	public void writeNode(RandomAccessFile bpFile) throws IOException {
+		// Write leaf node flag
+		bpFile.writeBoolean(true);
+		
+		super.writeNode(bpFile);
+		
+		for(int i = 0; i < super.getSize(); i++) {
+			bpFile.writeInt(keyPageID[i]);
+			bpFile.writeInt(keySlotID[i]);
+		}
+		// Skip empty keys
+		bpFile.skipBytes(2 * INT_SIZE * (super.getMaxSize() - super.getSize()));
+		
+		bpFile.writeInt(nextLeafOffset);
+		bpFile.writeInt(prevLeafOffset);
+	}
+	
+	public void readNode(byte[] data) {
+		byte[] intData;
+		
+		// Read node common data
+		super.readNode(data);
+		
+		// Only keep leaf node specific data
+		data = Arrays.copyOfRange(data, 2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * super.getMaxSize(),
+										2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * super.getMaxSize() + (2 * super.getMaxSize() + 2) * INT_SIZE);
+		
+		// Process binary data of leaf node specific data
+		for(int i = 0; i < super.getSize(); i++) {
+			intData = Arrays.copyOfRange(data, 2 * i * INT_SIZE, (2 * i + 1) * INT_SIZE);
+			keyPageID[i] =  ByteBuffer.wrap(intData).getInt();
+			
+			intData = Arrays.copyOfRange(data, (2 * i + 1) * INT_SIZE, (2 * i + 2) * INT_SIZE);
+			keySlotID[i] =  ByteBuffer.wrap(intData).getInt();
+		}
+		intData = Arrays.copyOfRange(data, 2 * super.getSize() * INT_SIZE, (2 * super.getSize() + 1) * INT_SIZE);
+		nextLeafOffset = ByteBuffer.wrap(intData).getInt();
+		
+		intData = Arrays.copyOfRange(data, (2 * super.getSize() + 1) * INT_SIZE, (2 * super.getSize() + 2) * INT_SIZE);
+		prevLeafOffset = ByteBuffer.wrap(intData).getInt();
 	}
 }

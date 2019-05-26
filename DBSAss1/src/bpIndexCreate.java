@@ -50,7 +50,7 @@ public class bpIndexCreate {
 			}
 		} else {
 			System.err.println("Invalid parameters. Please use the following:");
-			System.err.println("java bpIndex <B+ Node Size> <Heap File Name> <Heap File Page Size> <Attribute No. to Index By>");
+			System.err.println("java bpIndexCreate <B+ Node Size> <Heap File Name> <Heap File Page Size> <Attribute No. to Index By>");
 			System.err.println("B+ Node Size = Number of Keys in each node.");
 			System.err.println("Attribute No. to Index By = Which attribute to create the index on. Starts at 0 for the first attribute.");
 			System.exit(1);

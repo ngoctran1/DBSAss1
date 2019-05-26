@@ -1,102 +1,61 @@
 package bpIndexLib;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 
-public class bpIndexNode implements bpNode {
-	private int offset = -1;
+public class bpIndexNode extends bpNode {
+	private static final int INT_SIZE = 4;
+	private static final int MAX_KEY_SIZE = 50;
 	
-	private bpIndexNode parent;
-	private int parentOffset = -1;
-	
-	private int maxSize;
-	private int size = 0;
-	
-	private ArrayList<String> keys;
 	private ArrayList<bpNode> children;
 	private ArrayList<Integer> childrenOffset;
 	
-	public bpIndexNode(int maxSize) {
-		this.maxSize = maxSize;
+	public bpIndexNode(int maxSize, int maxKeySize) {
+		super(maxSize, maxKeySize);
 		
-		keys = new ArrayList<>(maxSize);
 		children = new ArrayList<>(maxSize + 1);
 		childrenOffset = new ArrayList<>(maxSize + 1);
 	}
 	
-	public int getOffset() {
-		return offset;
-	}
-
-	public void setOffset(int offset) {
-		this.offset = offset;
-	}
-
-	public int getSize() {
-		return size;
-	}
-
-	public void setSize(int size) {
-		this.size = size;
-	}
-
-	public bpIndexNode getParent() {
-		return parent;
-	}
-
-	public void setParent(bpIndexNode parent) {
-		this.parent = parent;
-		parentOffset = parent.getOffset();
-	}
-	
-	public int getParentOffset() {
-		return parentOffset;
-	}
-	
-	public void setParentOffset(int parentOffset) {
-		this.parentOffset = parentOffset;
-	}
-	
 	public int addKey(String key, bpNode child) {
-		int insertedIndex = -1;
-		if(size == maxSize) {
-			return insertedIndex;
+		int index = -1;
+		if(super.getSize() == super.getMaxSize()) {
+			return index;
 		}
-		for(int i = 0; i < size; i++) {
-			if(key.compareTo(keys.get(i)) < 0) {
-				insertedIndex = i + 1;
-				keys.add(i, key);
-				children.add(insertedIndex, child);
-				childrenOffset.add(insertedIndex, child.getOffset());
-				size++;
+		
+		for(int i = 0; i < super.getSize(); i++) {
+			if(key.compareTo(super.getKey(i)) < 0) {
+				index = i + 1;
+				super.addKey(i, key);
+				children.add(index, child);
+				childrenOffset.add(index, child.getOffset());
 				break;
 			}
 		}
-		if(insertedIndex == -1) {
+		
+		if(index == -1) {
 			children.add(child);
 			childrenOffset.add(child.getOffset());
-			keys.add(key);
-			size++;
+			super.addKey(key);
 		}
-		return insertedIndex;
-	}
-
-	public String getKey(int index) {
-		return keys.get(index);
+		return index;
 	}
 	
 	public void setKey(int index, String key) {
-		if(keys.size() <= index) {
-			keys.add(index, key);
+		if(super.getSize() <= index) {
+			super.addKey(index, key);
 		} else {
-			keys.set(index, key);
+			super.setKey(index, key);
 		}
 	}
 	
 	public void removeKey(int index) {
-		keys.remove(index);
+		super.removeKey(index);
 		children.remove(index + 1);
 		childrenOffset.remove(index + 1);
-		size--;
 	}
 
 	public bpNode getChild(int index) {
@@ -106,7 +65,7 @@ public class bpIndexNode implements bpNode {
 			} else {
 				return children.get(index);
 			}
-		} else if(index > size) {
+		} else if(index > super.getSize()) {
 			return null;
 		} else {
 			if(children.size() <= index) {
@@ -119,7 +78,7 @@ public class bpIndexNode implements bpNode {
 	}
 	
 	public void setChild(int index, bpNode child) {
-		if(index == 0 && size == 0) {
+		if(index == 0 && super.getSize() == 0) {
 			children.add(child);
 			childrenOffset.add(child.getOffset());
 		} else {
@@ -137,5 +96,50 @@ public class bpIndexNode implements bpNode {
 		} else {
 			childrenOffset.set(index, offset);
 		}
+	}
+	
+	public void writeNode(RandomAccessFile bpFile) throws IOException {
+		bpFile.writeBoolean(false);
+		
+		super.writeNode(bpFile);
+		
+		for(int i = 0; i < super.getSize(); i++) {
+			bpFile.writeInt(childrenOffset.get(i));
+		}
+		bpFile.writeInt(childrenOffset.get(super.getSize())); // N+1 pointers
+		
+		// Skip empty keys
+		bpFile.skipBytes(INT_SIZE * (super.getMaxSize() - super.getSize()));
+	}
+	
+	public void readNode(byte[] data) {
+		byte[] intData;
+		int offset;
+		
+		// Read node common data
+		super.readNode(data);
+		
+		// Only keep index node specific data
+		data = Arrays.copyOfRange(data, 2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * super.getMaxSize(),
+										2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * super.getMaxSize() + (super.getMaxSize() + 1) * INT_SIZE);
+		
+		// Process binary data of index node specific data
+		for(int i = 0; i < super.getSize(); i++) {
+			intData = Arrays.copyOfRange(data, i * INT_SIZE, (i + 1) * INT_SIZE);
+			offset = ByteBuffer.wrap(intData).getInt();
+			try {
+				childrenOffset.set(i, offset);
+			} catch (Exception e) {
+				childrenOffset.add(i, offset);
+			}
+		}
+		intData = Arrays.copyOfRange(data, super.getSize() * INT_SIZE, (super.getSize() + 1) * INT_SIZE);
+		offset = ByteBuffer.wrap(intData).getInt();
+		try {
+			childrenOffset.set(super.getSize(), offset);
+		} catch (Exception e) {
+			childrenOffset.add(super.getSize(), offset);
+		}
+//		childrenOffset.set(super.getSize(), offset);
 	}
 }
