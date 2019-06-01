@@ -74,12 +74,10 @@ public abstract class bpNode {
 	}
 	
 	public void setKey(int index, String key) {
-		try {
+		if(index == keys.size()) {
+			keys.add(index, key);
+		} else {
 			keys.set(index, key);
-		} catch (Exception e) {
-			if(index == keys.size()) {
-				keys.add(index, key);
-			}
 		}
 	}
 	

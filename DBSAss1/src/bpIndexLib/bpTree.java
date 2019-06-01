@@ -4,8 +4,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import dbLoadLib.Heap;
 import dbLoadLib.Page;
@@ -14,7 +12,7 @@ public class bpTree {
 	private static final int INT_SIZE = 4;
 	private static final int MAX_KEY_SIZE = 50;
 
-	// Leaf nodes are bigger than index nodes. They contain (2N+6) INT and N STR where N number of keys
+	// Leaf nodes are bigger than index nodes. They contain (3N + 6) INT and N STR where N number of keys
 	private int nodeByteSize; 
 	private bpIndexNode root;
 	private bpLeafNode firstLeaf;
@@ -24,13 +22,14 @@ public class bpTree {
 	private String bpFileName;
 	
 	private long heapFileReadTime;
+	private long randomFileReadTime;
 	
 	private int numLeavesRead = 0;
 	
 	// Read pre-existing B+ tree
 	public bpTree(RandomAccessFile bpFile) {
 		this.bpFile = bpFile;
-		
+		randomFileReadTime = 0;
 		System.err.println("READING B+ INDEX FILE\n");
 		try {
 			nodeMaxSize = bpFile.readInt();
@@ -47,7 +46,6 @@ public class bpTree {
 			firstLeaf = new bpLeafNode(nodeMaxSize, MAX_KEY_SIZE);
 			firstLeaf.setOffset((int)bpFile.getFilePointer());
 			bpFile.readBoolean();
-//			readLeafNode(firstLeaf);
 			firstLeaf.readNode(readData(bpFile, true));
 			numLeavesRead++;
 			
@@ -56,7 +54,6 @@ public class bpTree {
 			bpFile.readBoolean();
 			
 			root.readNode(readData(bpFile, false));
-//			readIndexNode(root);
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.exit(1);
@@ -72,6 +69,7 @@ public class bpTree {
 		boolean setFirstPointer = false;
 		int numLeafNodes = 0;
 		bpLeafNode newLeafNode = null;
+		randomFileReadTime = 0;
 		
 		// Create new index file
 		try {
@@ -179,7 +177,7 @@ public class bpTree {
 			int copyLength = (pushIntoNode.getSize() / 2) - 1; // Second half - Key to push up
 			int pushValueIndex = startCopyIndex - 1;
 			
-			// Preserve pointer of the value about to be pushed by storing it in the first pointer in new node
+			// Preserve middle key value about to be pushed up into parent node by storing it
 			String pushKey = pushIntoNode.getKey(pushValueIndex);
 			
 			// Copy over data from full node into new node (split)
@@ -545,13 +543,17 @@ public class bpTree {
 	// Reads in correct amount of binary data for use with readNode methods of nodes.
 	private byte[] readData(RandomAccessFile bpFile, boolean leaf) throws IOException {
 		byte[] data;
-		
+
 		if(leaf) {
 			data = new byte[2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * nodeMaxSize + (2 * nodeMaxSize + 2) * INT_SIZE];
 		} else {
 			data = new byte[2 * INT_SIZE + (INT_SIZE + MAX_KEY_SIZE) * nodeMaxSize + (nodeMaxSize + 1) * INT_SIZE];
 		}
+		
+		long startTime = System.nanoTime();
 		bpFile.read(data);
+		randomFileReadTime += System.nanoTime() - startTime;
+		
 		return data;
 	}
 	
@@ -609,5 +611,9 @@ public class bpTree {
 	
 	public int getNumLeavesRead() {
 		return numLeavesRead;
+	}
+	
+	public long getRandomFileReadTime() {
+		return randomFileReadTime;
 	}
 }

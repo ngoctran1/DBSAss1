@@ -139,11 +139,8 @@ public class sortMerge {
 						// Check for any smallest data
 						if(newDataLines[k] != null) {
 							currentKey = newDataLines[k].split(",")[0];
-							// Set initial smallest
-							if(goal == null) {
-								goal = currentKey;
-								goalIndex = k;
-							} else if(currentKey.compareTo(goal) < 0) {
+							
+							if(goal == null || currentKey.compareTo(goal) < 0) {
 								goal = currentKey;
 								goalIndex = k;
 							}

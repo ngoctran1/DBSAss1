@@ -136,6 +136,7 @@ public class bpIndexCreate {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
 		endTime = System.nanoTime();
 		System.err.printf("Time to Read DB and Sort Subfiles: %d ms\n", (endTime - beginTime) / 1000000);
 		System.err.println("Num Pages Read: " + numPages);
@@ -147,11 +148,35 @@ public class bpIndexCreate {
 		
 		// Write out any remaining data
 		try { 
+			// Sort and write out final node
 			if(subFile != null) {
+				// Sort subfile
+				sortMerge.mergeSort(subFileKeys, subFileKeyPageID, subFileKeySlotID, 0, recordsSubFile);
+				
+				// Write out sorted subfile
+				for(int j = 0; j < recordsSubFile; j++) {
+					StringBuilder csvData = new StringBuilder();
+					csvData.append(subFileKeys[j]);
+					csvData.append(",");
+					csvData.append(subFileKeyPageID[j]);
+					csvData.append(",");
+					csvData.append(subFileKeySlotID[j]);
+					csvData.append("\n");
+					subFile.write(csvData.toString());
+				}
 				numSubFiles++;
 				subFile.close();
 			}
-			sortMerge.mergeFiles(numSubFiles, numMergeLimit);
+			
+			// Merge all remaining files if needed
+			if(numSubFiles > 1) {
+				sortMerge.mergeFiles(numSubFiles, numMergeLimit);
+			} else {
+				File oldFile = new File("subfile.0");
+				File temp = new File("sortedData.txt");
+				temp.delete();
+				oldFile.renameTo(temp);
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.exit(0);

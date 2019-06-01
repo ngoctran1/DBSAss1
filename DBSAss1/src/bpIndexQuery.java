@@ -114,6 +114,7 @@ public class bpIndexQuery {
 		long totalTime = endTime - beginTime;
 		System.err.println("--------------------------------------------------------------------------------");
 		System.err.println("SUMMARY STATS\n");
+		System.err.printf("Index File Read Time: %d ms\n", tree.getRandomFileReadTime() / 1000000);
 		System.err.printf("Heap File Read Time: %d ms\n", tree.getHeapFileReadTime() / 1000000);
 		System.err.printf("Total Time Taken: %d ms\n", totalTime / 1000000);
 	}
